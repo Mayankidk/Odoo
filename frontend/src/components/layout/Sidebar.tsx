@@ -27,7 +27,7 @@ const navigation: NavItem[] = [
   { name: 'Assets', href: '/assets', icon: Package },
   { name: 'Bookings', href: '/bookings', icon: CalendarDays },
   { name: 'Maintenance', href: '/maintenance', icon: Wrench },
-  { name: 'Audits', href: '/audits', icon: ShieldCheck, roles: ['admin', 'asset_manager'] },
+  { name: 'Audits', href: '/audits', icon: ShieldCheck, roles: ['admin', 'asset_manager', 'auditor'] },
   { name: 'Users', href: '/users', icon: Users, roles: ['admin', 'asset_manager'] },
   { name: 'Organization', href: '/settings', icon: Settings, roles: ['admin'] },
 ];
