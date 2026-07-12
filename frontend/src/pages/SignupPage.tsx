@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../config/supabase';
-import { useAuthStore } from '../stores/authStore';
 
 export function SignupPage() {
   const [error, setError] = useState<string | null>(null);

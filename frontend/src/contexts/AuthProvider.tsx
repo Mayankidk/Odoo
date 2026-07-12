@@ -1,4 +1,5 @@
-import { useEffect, ReactNode } from 'react';
+import { useEffect } from 'react';
+import type { ReactNode } from 'react';
 import { supabase } from '../config/supabase';
 import { useAuthStore } from '../stores/authStore';
 
@@ -6,26 +7,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const { setUser, clearSession } = useAuthStore();
 
   useEffect(() => {
-    // Check active sessions and sets the user
-    supabase.auth.getSession()
-      .then(({ data: { session } }) => {
+    const initSession = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
         if (session?.user) {
-          // In a real app, you would also fetch the user role from a custom table here
-          // e.g. const { data } = await supabase.from('user_roles').select('role').eq('user_id', session.user.id)
-          setUser(session.user, 'employee'); // Defaulting role for now
+          const { data } = await supabase
+            .from('users')
+            .select('role')
+            .eq('id', session.user.id)
+            .single();
+            
+          setUser(session.user, data?.role || 'employee');
         } else {
           clearSession();
         }
-      })
-      .catch((err) => {
+      } catch (err) {
         console.error("Supabase connection error:", err);
         clearSession();
-      });
+      }
+    };
+
+    initSession();
 
     // Listen for changes on auth state (logged in, signed out, etc.)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (session?.user) {
-        setUser(session.user, 'employee');
+        const { data } = await supabase
+          .from('users')
+          .select('role')
+          .eq('id', session.user.id)
+          .single();
+          
+        setUser(session.user, data?.role || 'employee');
       } else {
         clearSession();
       }
