@@ -155,6 +155,134 @@ export type AuditItem = RowBase & {
   verified_at: string | null
 }
 
+// ── Analytics / Reports types ──────────────────────────────────────────────
+
+export type UtilizationTrendPoint = {
+  month: string
+  month_date: string
+  available: number
+  allocated: number
+  maintenance: number
+  idle: number
+}
+
+export type MaintenanceStats = {
+  by_priority: Array<{ priority: string; count: number }>
+  by_status: Array<{ status: string; count: number }>
+  by_category: Array<{ category: string; count: number }>
+  monthly_trend: Array<{
+    month: string
+    total: number
+    resolved: number
+    pending: number
+  }>
+}
+
+export type AttentionSummary = {
+  total_overdue_returns: number
+  total_poor_condition: number
+  total_open_maintenance: number
+  total_retired: number
+}
+
+export type OverdueReturn = {
+  asset_id: string
+  asset_name: string
+  asset_tag: string
+  condition: string
+  return_date: string
+  days_overdue: number
+  department: string | null
+}
+
+export type PoorConditionAsset = {
+  asset_id: string
+  asset_name: string
+  asset_tag: string
+  condition: string
+  status: string
+  category: string
+  department: string | null
+  age_days: number
+}
+
+export type OpenMaintenanceRequest = {
+  request_id: string
+  asset_name: string
+  asset_tag: string
+  priority: string
+  status: string
+  description: string
+  created_at: string
+  days_open: number
+}
+
+export type AssetsForAttention = {
+  overdue_returns: OverdueReturn[] | null
+  poor_condition: PoorConditionAsset[] | null
+  open_maintenance: OpenMaintenanceRequest[] | null
+  summary: AttentionSummary
+}
+
+export type DepartmentAllocationRow = {
+  department_id: string
+  department_name: string
+  total_assets: number
+  allocated: number
+  available: number
+  maintenance: number
+  users_count: number
+  active_bookings: number
+  open_requests: number
+}
+
+export type HeatmapCell = {
+  day_of_week: number
+  hour: number
+  count: number
+}
+
+export type TopResource = {
+  asset_name: string
+  asset_tag: string
+  booking_count: number
+  total_hours: number
+}
+
+export type MonthlyBooking = {
+  month: string
+  month_date: string
+  total: number
+  completed: number
+  cancelled: number
+}
+
+export type BookingHeatmapData = {
+  heatmap: HeatmapCell[] | null
+  top_resources: TopResource[] | null
+  monthly_bookings: MonthlyBooking[] | null
+  stats: {
+    total_bookings: number
+    avg_duration_hrs: number
+    utilization_rate: number
+    unique_users: number
+  }
+}
+
+export type ReportsSummary = {
+  total_assets: number
+  total_asset_value: number
+  utilization_rate: number
+  total_departments: number
+  total_users: number
+  total_bookings_30d: number
+  total_maintenance_30d: number
+  resolved_maintenance: number
+  asset_status_breakdown: Record<string, number>
+}
+
+// ── Legacy KPIs ──────────────────────────────────────────────────────────────
+
 export type DashboardKpis = {
   assets_available: number
   assets_allocated: number
@@ -213,6 +341,30 @@ export type Database = {
       get_dashboard_kpis: {
         Args: Record<string, never>
         Returns: DashboardKpis
+      }
+      get_asset_utilization_trends: {
+        Args: { p_months?: number }
+        Returns: UtilizationTrendPoint[]
+      }
+      get_maintenance_stats: {
+        Args: Record<string, never>
+        Returns: MaintenanceStats
+      }
+      get_assets_due_for_attention: {
+        Args: Record<string, never>
+        Returns: AssetsForAttention
+      }
+      get_department_allocation_summary: {
+        Args: Record<string, never>
+        Returns: DepartmentAllocationRow[]
+      }
+      get_booking_heatmap: {
+        Args: { p_days?: number }
+        Returns: BookingHeatmapData
+      }
+      get_reports_summary: {
+        Args: Record<string, never>
+        Returns: ReportsSummary
       }
     }
     Enums: Record<string, never>

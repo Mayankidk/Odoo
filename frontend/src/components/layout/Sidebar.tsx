@@ -9,7 +9,8 @@ import {
   Settings, 
   Users,
   X,
-  LogOut
+  LogOut,
+  BarChart3
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
@@ -26,6 +27,7 @@ const navigation: NavItem[] = [
   { name: 'Assets', href: '/assets', icon: Package },
   { name: 'Bookings', href: '/bookings', icon: CalendarDays },
   { name: 'Maintenance', href: '/maintenance', icon: Wrench },
+  { name: 'Reports', href: '/reports', icon: BarChart3, roles: ['admin', 'asset_manager'] },
   { name: 'Users', href: '/users', icon: Users, roles: ['admin', 'manager'] },
   { name: 'Settings', href: '/settings', icon: Settings, roles: ['admin'] },
 ];

@@ -7,3 +7,11 @@ export { useDashboardKpis } from "./useDashboardKpis"
 export { useDepartments } from "./useDepartments"
 export { useEmployees } from "./useEmployees"
 export { useMaintenanceRequests } from "./useMaintenanceRequests"
+export {
+  useReportsSummary,
+  useUtilizationTrends,
+  useMaintenanceStats,
+  useAssetsForAttention,
+  useDepartmentAllocation,
+  useBookingHeatmap,
+} from "./useReports"

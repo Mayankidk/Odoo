@@ -4,6 +4,7 @@ import { DashboardPage } from "./pages/DashboardPage";
 import { LoginPage } from "./pages/LoginPage";
 import { SignupPage } from "./pages/SignupPage";
 import { BookingsPage } from "./pages/BookingsPage";
+import { ReportsPage } from "./pages/ReportsPage";
 import { ProtectedRoute } from "./components/layout/ProtectedRoute";
 import { AuthProvider } from "./contexts/AuthProvider";
 
@@ -22,6 +23,7 @@ function App() {
               <Route path="bookings" element={<BookingsPage />} />
               <Route path="maintenance" element={<div className="p-4">Maintenance Page Placeholder</div>} />
               <Route path="users" element={<div className="p-4">Users Page Placeholder</div>} />
+              <Route path="reports" element={<ReportsPage />} />
               <Route path="settings" element={<div className="p-4">Settings Page Placeholder</div>} />
             </Route>
           </Route>
