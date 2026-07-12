@@ -34,7 +34,7 @@ const navigation: NavItem[] = [
   { name: 'Audit', href: '/audits', icon: ShieldCheck },
   { name: 'Reports', href: '/analytics', icon: TrendingUp },
   { name: 'Notifications', href: '/notifications', icon: Bell },
-  { name: 'Users', href: '/users', icon: Users, roles: ['admin', 'asset_manager'] },
+  { name: 'Users', href: '/users', icon: Users },
 ];
 
 export function Sidebar() {
