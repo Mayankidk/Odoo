@@ -129,6 +129,7 @@ export type MaintenanceRequest = RowBase & {
   description: string
   priority: MaintenancePriority
   status: MaintenanceStatus
+  photo_url: string | null
   resolution_notes: string | null
   resolved_at: string | null
   updated_at: string

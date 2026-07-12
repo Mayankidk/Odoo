@@ -1,4 +1,5 @@
-import { useState, useEffect, type FormEvent } from "react"
+import { useState, useEffect, useRef, type FormEvent } from "react"
+import { supabase } from "@/lib/supabase"
 import { useLocation } from "react-router-dom"
 import { useCreateMaintenanceRequest, useUpdateMaintenanceStatus } from "@/hooks/mutations"
 import { useMaintenanceRequests, useAssets, useEmployees } from "@/hooks/queries"
@@ -15,6 +16,8 @@ export function MaintenancePage() {
   const [selectedRequest, setSelectedRequest] = useState<any | null>(null)
   const [isRequestModalOpen, setIsRequestModalOpen] = useState(false)
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
+  const [photoFile, setPhotoFile] = useState<File | null>(null)
+  const photoInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (location.state?.openModal) {
@@ -77,14 +80,34 @@ export function MaintenancePage() {
     }
 
     const form = new FormData(event.currentTarget)
+
+    // Upload photo to storage if one was selected
+    let photoUrl: string | null = null
+    if (photoFile) {
+      try {
+        const ext = photoFile.name.split(".").pop()
+        const path = `maintenance/${user.id}-${Date.now()}${ext ? `.${ext}` : ""}`
+        const { error: uploadErr } = await supabase.storage
+          .from("asset-documents")
+          .upload(path, photoFile)
+        if (uploadErr) throw uploadErr
+        const { data: { publicUrl } } = supabase.storage
+          .from("asset-documents")
+          .getPublicUrl(path)
+        photoUrl = publicUrl
+      } catch (err: any) {
+        toast.error("Photo upload failed: " + (err.message ?? "Unknown error"))
+        return
+      }
+    }
+
     const payload: Partial<MaintenanceRequest> = {
       asset_id: String(form.get("asset_id")),
       description: String(form.get("description")).trim(),
       priority: String(form.get("priority")) as MaintenancePriority,
       status: "pending",
       raised_by_id: user.id,
-      // Include photo preview (base64) if captured; DB may store or ignore
-      ...(photoPreview ? { photo_url: photoPreview } : {}),
+      ...(photoUrl ? { photo_url: photoUrl } : {}),
     }
 
     try {
@@ -92,6 +115,8 @@ export function MaintenancePage() {
       toast.success("Maintenance request raised successfully!")
       setIsRequestModalOpen(false)
       setPhotoPreview(null)
+      setPhotoFile(null)
+      if (photoInputRef.current) photoInputRef.current.value = ""
     } catch (err: any) {
       toast.error(err.message || "Failed to raise request")
     }
@@ -471,16 +496,18 @@ export function MaintenancePage() {
                   <span className="flex items-center gap-1.5"><Camera className="w-4 h-4" /> Attach Photo (optional)</span>
                 </label>
                 <input
+                  ref={photoInputRef}
                   type="file"
                   accept="image/*"
                   onChange={(e) => {
                     const file = e.target.files?.[0]
-                    if (!file) { setPhotoPreview(null); return }
+                    if (!file) { setPhotoPreview(null); setPhotoFile(null); return }
                     if (file.size > 5 * 1024 * 1024) {
                       toast.error("Photo must be under 5 MB")
                       e.target.value = ""
                       return
                     }
+                    setPhotoFile(file)
                     const reader = new FileReader()
                     reader.onload = (ev) => setPhotoPreview(ev.target?.result as string)
                     reader.readAsDataURL(file)
