@@ -3,6 +3,7 @@ import { AppLayout } from "./components/layout/AppLayout";
 import { ProtectedRoute } from "./components/layout/ProtectedRoute";
 import { AuthProvider } from "./contexts/AuthProvider";
 import { AssetsPage } from "./pages/AssetsPage";
+import { AllocationPage } from "./pages/AllocationPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { LoginPage } from "./pages/LoginPage";
 import { OrganizationSetupPage } from "./pages/OrganizationSetupPage";
@@ -29,6 +30,7 @@ function App() {
             <Route path="/" element={<AppLayout />}>
               <Route index element={<DashboardPage />} />
               <Route path="assets" element={<AssetsPage />} />
+              <Route path="allocations" element={<AllocationPage />} />
               <Route path="bookings" element={<BookingsPage />} />
               <Route path="maintenance" element={<MaintenancePage />} />
               <Route path="audits" element={<AuditPage />} />
