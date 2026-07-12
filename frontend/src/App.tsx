@@ -29,6 +29,7 @@ function App() {
             <Route path="/" element={<AppLayout />}>
               <Route index element={<DashboardPage />} />
               <Route path="assets" element={<AssetsPage />} />
+              <Route path="allocations" element={<AssetsPage />} />
               <Route path="bookings" element={<BookingsPage />} />
               <Route path="maintenance" element={<MaintenancePage />} />
               <Route path="audits" element={<AuditPage />} />

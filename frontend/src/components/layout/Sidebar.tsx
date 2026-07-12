@@ -12,7 +12,8 @@ import {
   LogOut,
   ShieldCheck,
   TrendingUp,
-  Bell
+  Bell,
+  ArrowLeftRight
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
@@ -28,7 +29,7 @@ const navigation: NavItem[] = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
   { name: 'Organization Setup', href: '/settings', icon: Settings },
   { name: 'Assets', href: '/assets', icon: Package },
-  { name: 'Allocation & Transfer', href: '/assets', icon: Users },
+  { name: 'Allocation & Transfer', href: '/allocations', icon: ArrowLeftRight },
   { name: 'Resource Booking', href: '/bookings', icon: CalendarDays },
   { name: 'Maintenance', href: '/maintenance', icon: Wrench },
   { name: 'Audit', href: '/audits', icon: ShieldCheck },
