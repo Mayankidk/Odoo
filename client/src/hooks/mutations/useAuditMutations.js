@@ -1,20 +1,65 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/config/supabase';
 import { queryKeys } from '@/config/queryKeys';
+import { mockAssets, mockAuditCycles, mockAuditItems, delay } from '@/config/mockData';
+
+const useMock = import.meta.env.VITE_USE_MOCK_DATA === 'true';
 
 /**
  * Mutation to create a new audit cycle.
  * Initiates the cycle and generates corresponding audit items for all assets in scope.
+ *
+ * @param {{ name: string, scopeType: 'all'|'department'|'location', scopeId?: string, scopeLocation?: string, startDate: string, endDate: string }} params
+ * @returns {import('@tanstack/react-query').UseMutationResult}
  */
 export function useCreateAuditCycle() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async ({ name, scopeType, scopeId = null, scopeLocation = null, startDate, endDate }) => {
+      if (useMock) {
+        await delay();
+        const newCycle = {
+          id: `audit-c-${Date.now()}`,
+          name,
+          scope_type: scopeType,
+          scope_id: scopeId,
+          scope_location: scopeLocation,
+          start_date: startDate,
+          end_date: endDate,
+          status: 'planned',
+          created_by_id: 'emp-1',
+          created_at: new Date().toISOString(),
+        };
+        mockAuditCycles.push(newCycle);
+
+        // Generate audit items for matching assets
+        let scopedAssets = [...mockAssets];
+        if (scopeType === 'department') {
+          scopedAssets = scopedAssets.filter((a) => a.department_id === scopeId);
+        } else if (scopeType === 'location') {
+          scopedAssets = scopedAssets.filter((a) => a.location === scopeLocation);
+        }
+
+        scopedAssets.forEach((asset) => {
+          mockAuditItems.push({
+            id: `audit-i-${Date.now()}-${asset.id}`,
+            audit_cycle_id: newCycle.id,
+            asset_id: asset.id,
+            verified_by_id: null,
+            verification_status: 'pending',
+            notes: null,
+            verified_at: null,
+            created_at: new Date().toISOString(),
+          });
+        });
+
+        return newCycle;
+      }
+
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      // 1. Insert the audit cycle
       const { data: cycle, error: cycleErr } = await supabase
         .from('audit_cycles')
         .insert([
@@ -34,7 +79,6 @@ export function useCreateAuditCycle() {
 
       if (cycleErr) throw cycleErr;
 
-      // 2. Query all assets that match the scope
       let assetQuery = supabase.from('assets').select('id');
       if (scopeType === 'department') {
         assetQuery = assetQuery.eq('department_id', scopeId);
@@ -45,7 +89,6 @@ export function useCreateAuditCycle() {
       const { data: assets, error: assetErr } = await assetQuery;
       if (assetErr) throw assetErr;
 
-      // 3. Insert audit items for all matching assets (verification_status defaults to 'pending')
       if (assets && assets.length > 0) {
         const auditItems = assets.map((asset) => ({
           audit_cycle_id: cycle.id,
@@ -70,13 +113,24 @@ export function useCreateAuditCycle() {
 
 /**
  * Mutation to assign auditors to an audit cycle.
+ *
+ * @param {{ auditCycleId: string, auditorIds: string[] }} params
+ * @returns {import('@tanstack/react-query').UseMutationResult}
  */
 export function useAssignAuditors() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async ({ auditCycleId, auditorIds }) => {
-      // 1. Delete existing auditors for this cycle
+      if (useMock) {
+        await delay();
+        return auditorIds.map((id) => ({
+          id: `auditor-assign-${Date.now()}-${id}`,
+          audit_cycle_id: auditCycleId,
+          auditor_id: id,
+        }));
+      }
+
       const { error: deleteErr } = await supabase
         .from('audit_cycle_auditors')
         .delete()
@@ -84,7 +138,6 @@ export function useAssignAuditors() {
 
       if (deleteErr) throw deleteErr;
 
-      // 2. Insert new auditor associations
       if (auditorIds && auditorIds.length > 0) {
         const assignments = auditorIds.map((auditorId) => ({
           audit_cycle_id: auditCycleId,
@@ -113,23 +166,47 @@ export function useAssignAuditors() {
 
 /**
  * Mutation to verify/audit an individual asset.
- * Updates verification status and logs who verified it and when.
- * If status is 'damaged', updates the asset's condition to 'damaged'.
+ *
+ * @param {{ auditItemId: string, assetId: string, verificationStatus: 'verified'|'missing'|'damaged', notes?: string }} params
+ * @returns {import('@tanstack/react-query').UseMutationResult}
  */
 export function useVerifyAuditItem() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async ({ auditItemId, assetId, verificationStatus, notes }) => {
+      if (useMock) {
+        await delay();
+        const index = mockAuditItems.findIndex((i) => i.id === auditItemId);
+        if (index !== -1) {
+          mockAuditItems[index] = {
+            ...mockAuditItems[index],
+            verification_status: verificationStatus,
+            notes,
+            verified_by_id: 'emp-2',
+            verified_at: new Date().toISOString(),
+          };
+
+          if (verificationStatus === 'damaged') {
+            const assetIdx = mockAssets.findIndex((a) => a.id === assetId);
+            if (assetIdx !== -1) {
+              mockAssets[assetIdx] = { ...mockAssets[assetIdx], condition: 'damaged' };
+            }
+          }
+
+          return mockAuditItems[index];
+        }
+        throw new Error('Audit item not found');
+      }
+
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      // 1. Update the audit item status
       const { data: item, error: itemErr } = await supabase
         .from('audit_items')
         .update({
           verification_status: verificationStatus,
-          notes: notes,
+          notes,
           verified_by_id: user.id,
           verified_at: new Date().toISOString(),
         })
@@ -139,7 +216,6 @@ export function useVerifyAuditItem() {
 
       if (itemErr) throw itemErr;
 
-      // 2. If the asset is verified as damaged, update its condition in the assets table
       if (verificationStatus === 'damaged') {
         const { error: assetErr } = await supabase
           .from('assets')
@@ -169,15 +245,39 @@ export function useVerifyAuditItem() {
 }
 
 /**
- * Mutation to update an audit cycle's status (planned, in_progress, completed).
- * If status is updated to 'completed', missing assets are updated to 'lost' status.
+ * Mutation to update an audit cycle's status (planned → in_progress → completed).
+ * If status is updated to 'completed', missing assets are marked 'lost'.
+ *
+ * @param {{ auditCycleId: string, status: 'planned'|'in_progress'|'completed' }} params
+ * @returns {import('@tanstack/react-query').UseMutationResult}
  */
 export function useUpdateAuditCycleStatus() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async ({ auditCycleId, status }) => {
-      // 1. Update the audit cycle status
+      if (useMock) {
+        await delay();
+        const cycleIdx = mockAuditCycles.findIndex((c) => c.id === auditCycleId);
+        if (cycleIdx === -1) throw new Error('Audit cycle not found');
+
+        mockAuditCycles[cycleIdx] = { ...mockAuditCycles[cycleIdx], status };
+
+        if (status === 'completed') {
+          const missingItems = mockAuditItems.filter(
+            (i) => i.audit_cycle_id === auditCycleId && i.verification_status === 'missing',
+          );
+          missingItems.forEach((item) => {
+            const assetIdx = mockAssets.findIndex((a) => a.id === item.asset_id);
+            if (assetIdx !== -1) {
+              mockAssets[assetIdx] = { ...mockAssets[assetIdx], status: 'lost' };
+            }
+          });
+        }
+
+        return mockAuditCycles[cycleIdx];
+      }
+
       const { data: cycle, error: cycleErr } = await supabase
         .from('audit_cycles')
         .update({ status })
@@ -187,9 +287,7 @@ export function useUpdateAuditCycleStatus() {
 
       if (cycleErr) throw cycleErr;
 
-      // 2. Cascade changes if cycle is completed
       if (status === 'completed') {
-        // Find all missing items in this cycle
         const { data: missingItems, error: itemsErr } = await supabase
           .from('audit_items')
           .select('asset_id')
@@ -201,7 +299,6 @@ export function useUpdateAuditCycleStatus() {
         if (missingItems && missingItems.length > 0) {
           const assetIds = missingItems.map((item) => item.asset_id);
 
-          // Update asset status to 'lost'
           const { error: assetsErr } = await supabase
             .from('assets')
             .update({ status: 'lost' })

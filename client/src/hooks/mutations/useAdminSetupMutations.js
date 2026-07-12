@@ -1,6 +1,9 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/config/supabase';
 import { queryKeys } from '@/config/queryKeys';
+import { addMockDepartment, updateMockDepartment, addMockCategory, updateMockCategory, updateMockEmployee, delay } from '@/config/mockData';
+
+const useMock = import.meta.env.VITE_USE_MOCK_DATA === 'true';
 
 /**
  * Mutation to create a new department.
@@ -10,6 +13,11 @@ export function useCreateDepartment() {
 
   return useMutation({
     mutationFn: async (departmentData) => {
+      if (useMock) {
+        await delay();
+        return addMockDepartment(departmentData);
+      }
+
       const { data, error } = await supabase
         .from('departments')
         .insert([departmentData])
@@ -33,6 +41,11 @@ export function useUpdateDepartment() {
 
   return useMutation({
     mutationFn: async ({ id, ...updates }) => {
+      if (useMock) {
+        await delay();
+        return updateMockDepartment(id, updates);
+      }
+
       const { data, error } = await supabase
         .from('departments')
         .update(updates)
@@ -62,6 +75,11 @@ export function useCreateCategory() {
 
   return useMutation({
     mutationFn: async (categoryData) => {
+      if (useMock) {
+        await delay();
+        return addMockCategory(categoryData);
+      }
+
       const { data, error } = await supabase
         .from('asset_categories')
         .insert([categoryData])
@@ -85,6 +103,11 @@ export function useUpdateCategory() {
 
   return useMutation({
     mutationFn: async ({ id, ...updates }) => {
+      if (useMock) {
+        await delay();
+        return updateMockCategory(id, updates);
+      }
+
       const { data, error } = await supabase
         .from('asset_categories')
         .update(updates)
@@ -114,6 +137,11 @@ export function useUpdateEmployee() {
 
   return useMutation({
     mutationFn: async ({ id, ...updates }) => {
+      if (useMock) {
+        await delay();
+        return updateMockEmployee(id, updates);
+      }
+
       const { data, error } = await supabase
         .from('users')
         .update(updates)
@@ -136,3 +164,4 @@ export function useUpdateEmployee() {
     },
   });
 }
+

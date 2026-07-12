@@ -1,15 +1,31 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/config/supabase';
 import { queryKeys } from '@/config/queryKeys';
+import { addMockMaintenanceRequest, updateMockMaintenanceStatus, delay } from '@/config/mockData';
+
+const useMock = import.meta.env.VITE_USE_MOCK_DATA === 'true';
 
 /**
  * Mutation to raise a new maintenance request.
+ *
+ * @param {{ assetId: string, description: string, priority: 'low'|'medium'|'high'|'critical' }} params
+ * @returns {import('@tanstack/react-query').UseMutationResult}
  */
 export function useRaiseMaintenanceRequest() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async ({ assetId, description, priority }) => {
+      if (useMock) {
+        await delay();
+        return addMockMaintenanceRequest({
+          asset_id: assetId,
+          raised_by_id: 'emp-4',
+          description,
+          priority,
+        });
+      }
+
       const {
         data: { user },
       } = await supabase.auth.getUser();
@@ -21,8 +37,8 @@ export function useRaiseMaintenanceRequest() {
           {
             asset_id: assetId,
             raised_by_id: user.id,
-            description: description,
-            priority: priority,
+            description,
+            priority,
             status: 'pending',
           },
         ])
@@ -46,19 +62,27 @@ export function useRaiseMaintenanceRequest() {
 
 /**
  * Mutation to approve a maintenance request.
- * Sets request status to 'approved' and marks asset status as 'under_maintenance'.
+ *
+ * @param {{ requestId: string, assetId: string }} params
+ * @returns {import('@tanstack/react-query').UseMutationResult}
  */
 export function useApproveMaintenanceRequest() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async ({ requestId, assetId }) => {
+      if (useMock) {
+        await delay();
+        return updateMockMaintenanceStatus(requestId, 'approved', {
+          approved_by_id: 'emp-2',
+        });
+      }
+
       const {
         data: { user },
       } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      // 1. Update the request status
       const { data: request, error: reqErr } = await supabase
         .from('maintenance_requests')
         .update({
@@ -71,7 +95,6 @@ export function useApproveMaintenanceRequest() {
 
       if (reqErr) throw reqErr;
 
-      // 2. Update the asset status
       const { error: assetErr } = await supabase
         .from('assets')
         .update({ status: 'under_maintenance' })
@@ -96,12 +119,23 @@ export function useApproveMaintenanceRequest() {
 
 /**
  * Mutation to reject a maintenance request.
+ *
+ * @param {{ requestId: string, resolutionNotes?: string }} params
+ * @returns {import('@tanstack/react-query').UseMutationResult}
  */
 export function useRejectMaintenanceRequest() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async ({ requestId, resolutionNotes }) => {
+      if (useMock) {
+        await delay();
+        return updateMockMaintenanceStatus(requestId, 'rejected', {
+          approved_by_id: 'emp-2',
+          resolution_notes: resolutionNotes,
+        });
+      }
+
       const {
         data: { user },
       } = await supabase.auth.getUser();
@@ -135,12 +169,22 @@ export function useRejectMaintenanceRequest() {
 
 /**
  * Mutation to assign a technician to a maintenance request.
+ *
+ * @param {{ requestId: string, technicianId: string }} params
+ * @returns {import('@tanstack/react-query').UseMutationResult}
  */
 export function useAssignTechnician() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async ({ requestId, technicianId }) => {
+      if (useMock) {
+        await delay();
+        return updateMockMaintenanceStatus(requestId, 'assigned', {
+          assigned_technician_id: technicianId,
+        });
+      }
+
       const { data, error } = await supabase
         .from('maintenance_requests')
         .update({
@@ -167,14 +211,23 @@ export function useAssignTechnician() {
 
 /**
  * Mutation to mark a maintenance request as resolved.
- * Sets status to 'resolved', updates resolution notes, and sets asset status back to 'available'.
+ *
+ * @param {{ requestId: string, assetId: string, resolutionNotes?: string }} params
+ * @returns {import('@tanstack/react-query').UseMutationResult}
  */
 export function useResolveMaintenanceRequest() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async ({ requestId, assetId, resolutionNotes }) => {
-      // 1. Update the maintenance request record
+      if (useMock) {
+        await delay();
+        return updateMockMaintenanceStatus(requestId, 'resolved', {
+          resolution_notes: resolutionNotes,
+          resolved_at: new Date().toISOString(),
+        });
+      }
+
       const { data: request, error: reqErr } = await supabase
         .from('maintenance_requests')
         .update({
@@ -188,7 +241,6 @@ export function useResolveMaintenanceRequest() {
 
       if (reqErr) throw reqErr;
 
-      // 2. Return the asset back to available status
       const { error: assetErr } = await supabase
         .from('assets')
         .update({ status: 'available' })

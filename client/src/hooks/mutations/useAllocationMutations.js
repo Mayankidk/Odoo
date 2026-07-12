@@ -1,6 +1,9 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/config/supabase';
 import { queryKeys } from '@/config/queryKeys';
+import { addMockAllocation, returnMockAsset, addMockTransferRequest, approveMockTransfer, rejectMockTransfer, delay } from '@/config/mockData';
+
+const useMock = import.meta.env.VITE_USE_MOCK_DATA === 'true';
 
 /**
  * Mutation to allocate an asset using the RPC function `allocate_asset`.
@@ -15,6 +18,17 @@ export function useAllocateAsset() {
       departmentId = null,
       expectedReturnDate = null,
     }) => {
+      if (useMock) {
+        await delay();
+        return addMockAllocation({
+          asset_id: assetId,
+          allocated_to_user_id: userId,
+          allocated_to_dept_id: departmentId,
+          expected_return_date: expectedReturnDate,
+          allocated_by_id: 'emp-2',
+        });
+      }
+
       const { data, error } = await supabase.rpc('allocate_asset', {
         p_asset_id: assetId,
         p_user_id: userId,
@@ -40,14 +54,17 @@ export function useAllocateAsset() {
 
 /**
  * Mutation to return an allocated asset.
- * Updates allocation status to 'returned' and asset status back to 'available'.
  */
 export function useReturnAsset() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async ({ allocationId, conditionOnReturn, returnNotes }) => {
-      // 1. Get the allocation details to find the asset_id
+      if (useMock) {
+        await delay();
+        return returnMockAsset(allocationId, conditionOnReturn, returnNotes);
+      }
+
       const { data: allocation, error: fetchErr } = await supabase
         .from('allocations')
         .select('asset_id')
@@ -56,7 +73,6 @@ export function useReturnAsset() {
 
       if (fetchErr) throw fetchErr;
 
-      // 2. Update the allocation record
       const { data: updatedAllocation, error: allocErr } = await supabase
         .from('allocations')
         .update({
@@ -71,7 +87,6 @@ export function useReturnAsset() {
 
       if (allocErr) throw allocErr;
 
-      // 3. Update the asset status back to 'available'
       const { error: assetErr } = await supabase
         .from('assets')
         .update({ status: 'available' })
@@ -102,6 +117,15 @@ export function useCreateTransferRequest() {
 
   return useMutation({
     mutationFn: async ({ allocationId, reason }) => {
+      if (useMock) {
+        await delay();
+        return addMockTransferRequest({
+          allocation_id: allocationId,
+          requested_by_id: 'emp-2',
+          reason,
+        });
+      }
+
       const {
         data: { user },
       } = await supabase.auth.getUser();
@@ -137,19 +161,22 @@ export function useCreateTransferRequest() {
 
 /**
  * Mutation to approve a transfer request.
- * Resolves the request, marks old allocation 'transferred', and spawns a new allocation.
  */
 export function useApproveTransferRequest() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (requestId) => {
+      if (useMock) {
+        await delay();
+        return approveMockTransfer(requestId, 'emp-1');
+      }
+
       const {
         data: { user },
       } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      // 1. Fetch the request details
       const { data: request, error: reqErr } = await supabase
         .from('transfer_requests')
         .select(
@@ -169,7 +196,6 @@ export function useApproveTransferRequest() {
         throw new Error('Transfer request is not pending');
       }
 
-      // 2. Mark the request as approved
       const { error: updateReqErr } = await supabase
         .from('transfer_requests')
         .update({
@@ -180,7 +206,6 @@ export function useApproveTransferRequest() {
 
       if (updateReqErr) throw updateReqErr;
 
-      // 3. Complete/Close the old allocation as 'transferred'
       const { error: oldAllocErr } = await supabase
         .from('allocations')
         .update({
@@ -191,7 +216,6 @@ export function useApproveTransferRequest() {
 
       if (oldAllocErr) throw oldAllocErr;
 
-      // 4. Create the new allocation to the requesting user
       const { data: newAlloc, error: newAllocErr } = await supabase
         .from('allocations')
         .insert([
@@ -231,6 +255,11 @@ export function useRejectTransferRequest() {
 
   return useMutation({
     mutationFn: async ({ requestId, rejectionReason }) => {
+      if (useMock) {
+        await delay();
+        return rejectMockTransfer(requestId, 'emp-1', rejectionReason);
+      }
+
       const {
         data: { user },
       } = await supabase.auth.getUser();
@@ -261,3 +290,4 @@ export function useRejectTransferRequest() {
     },
   });
 }
+
