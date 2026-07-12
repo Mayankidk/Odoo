@@ -1,6 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/config/supabase';
 import { queryKeys } from '@/config/queryKeys';
+import { mockTransferRequests, mockAllocations, mockAssets, mockEmployees, delay } from '@/config/mockData';
+
+const useMock = import.meta.env.VITE_USE_MOCK_DATA === 'true';
 
 /**
  * Fetch transfer requests with optional filters.
@@ -12,6 +15,33 @@ export function useTransferRequests(filters = {}) {
   return useQuery({
     queryKey: queryKeys.transferRequests.list(filters),
     queryFn: async () => {
+      if (useMock) {
+        await delay();
+        let list = [...mockTransferRequests];
+        if (filters.status) {
+          list = list.filter((tr) => tr.status === filters.status);
+        }
+        if (filters.allocationId) {
+          list = list.filter((tr) => tr.allocation_id === filters.allocationId);
+        }
+        return list.map((tr) => {
+          const allocation = mockAllocations.find((al) => al.id === tr.allocation_id) || null;
+          return {
+            ...tr,
+            allocation: allocation
+              ? {
+                  ...allocation,
+                  asset: mockAssets.find((a) => a.id === allocation.asset_id) || null,
+                  holder: mockEmployees.find((e) => e.id === allocation.allocated_to_user_id) || null,
+                  holder_dept: null,
+                }
+              : null,
+            requested_by: mockEmployees.find((e) => e.id === tr.requested_by_id) || null,
+            approved_by: mockEmployees.find((e) => e.id === tr.approved_by_id) || null,
+          };
+        });
+      }
+
       let query = supabase
         .from('transfer_requests')
         .select(`
@@ -41,3 +71,4 @@ export function useTransferRequests(filters = {}) {
     },
   });
 }
+

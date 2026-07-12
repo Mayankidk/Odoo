@@ -1,6 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/config/supabase';
 import { queryKeys } from '@/config/queryKeys';
+import { mockEmployees, mockDepartments, delay } from '@/config/mockData';
+
+const useMock = import.meta.env.VITE_USE_MOCK_DATA === 'true';
 
 /**
  * Fetch employees (users) with optional filters.
@@ -17,6 +20,32 @@ export function useEmployees(filters = {}) {
   return useQuery({
     queryKey: queryKeys.employees.list(filters),
     queryFn: async () => {
+      if (useMock) {
+        await delay();
+        let list = [...mockEmployees];
+        if (filters.status) {
+          list = list.filter((e) => e.status === filters.status);
+        }
+        if (filters.role) {
+          list = list.filter((e) => e.role === filters.role);
+        }
+        if (filters.departmentId) {
+          list = list.filter((e) => e.department_id === filters.departmentId);
+        }
+        if (filters.search) {
+          const searchLower = filters.search.toLowerCase();
+          list = list.filter(
+            (e) =>
+              e.name.toLowerCase().includes(searchLower) ||
+              e.email.toLowerCase().includes(searchLower),
+          );
+        }
+        return list.map((e) => ({
+          ...e,
+          department: mockDepartments.find((d) => d.id === e.department_id) || null,
+        }));
+      }
+
       let query = supabase
         .from('users')
         .select(`
@@ -60,6 +89,16 @@ export function useEmployee(id) {
   return useQuery({
     queryKey: queryKeys.employees.detail(id),
     queryFn: async () => {
+      if (useMock) {
+        await delay();
+        const emp = mockEmployees.find((e) => e.id === id);
+        if (!emp) throw new Error('Employee not found');
+        return {
+          ...emp,
+          department: mockDepartments.find((d) => d.id === emp.department_id) || null,
+        };
+      }
+
       const { data, error } = await supabase
         .from('users')
         .select(`
@@ -75,3 +114,4 @@ export function useEmployee(id) {
     enabled: !!id,
   });
 }
+

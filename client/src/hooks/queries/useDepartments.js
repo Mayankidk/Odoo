@@ -1,6 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/config/supabase';
 import { queryKeys } from '@/config/queryKeys';
+import { mockDepartments, delay } from '@/config/mockData';
+
+const useMock = import.meta.env.VITE_USE_MOCK_DATA === 'true';
 
 /**
  * Fetch all departments with optional filters.
@@ -12,6 +15,24 @@ export function useDepartments(filters = {}) {
   return useQuery({
     queryKey: queryKeys.departments.list(filters),
     queryFn: async () => {
+      if (useMock) {
+        await delay();
+        let list = [...mockDepartments];
+        if (filters.status) {
+          list = list.filter((d) => d.status === filters.status);
+        }
+        if (filters.search) {
+          list = list.filter((d) =>
+            d.name.toLowerCase().includes(filters.search.toLowerCase()),
+          );
+        }
+        return list.map((d) => ({
+          ...d,
+          head: { id: d.department_head_id, name: d.department_head_id === 'emp-2' ? 'Mayank Kumar' : 'Other Head', email: 'head@assetflow.com' },
+          parent: d.parent_department_id ? { id: d.parent_department_id, name: 'Parent Dept' } : null,
+        }));
+      }
+
       let query = supabase
         .from('departments')
         .select(`
@@ -46,6 +67,18 @@ export function useDepartment(id) {
   return useQuery({
     queryKey: queryKeys.departments.detail(id),
     queryFn: async () => {
+      if (useMock) {
+        await delay();
+        const dept = mockDepartments.find((d) => d.id === id);
+        if (!dept) throw new Error('Department not found');
+        return {
+          ...dept,
+          head: { id: dept.department_head_id, name: 'Mayank Kumar', email: 'mayank@assetflow.com' },
+          parent: dept.parent_department_id ? { id: dept.parent_department_id, name: 'Parent Dept' } : null,
+          employees: [],
+        };
+      }
+
       const { data, error } = await supabase
         .from('departments')
         .select(`
@@ -63,3 +96,4 @@ export function useDepartment(id) {
     enabled: !!id,
   });
 }
+

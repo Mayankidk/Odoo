@@ -1,6 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/config/supabase';
 import { queryKeys } from '@/config/queryKeys';
+import { mockAllocations, mockAssets, mockEmployees, mockDepartments, mockTransferRequests, delay } from '@/config/mockData';
+
+const useMock = import.meta.env.VITE_USE_MOCK_DATA === 'true';
 
 /**
  * Fetch allocations with optional filters.
@@ -18,6 +21,39 @@ export function useAllocations(filters = {}) {
   return useQuery({
     queryKey: queryKeys.allocations.list(filters),
     queryFn: async () => {
+      if (useMock) {
+        await delay();
+        let list = [...mockAllocations];
+        if (filters.status) {
+          list = list.filter((al) => al.status === filters.status);
+        }
+        if (filters.assetId) {
+          list = list.filter((al) => al.asset_id === filters.assetId);
+        }
+        if (filters.userId) {
+          list = list.filter((al) => al.allocated_to_user_id === filters.userId);
+        }
+        if (filters.departmentId) {
+          list = list.filter((al) => al.allocated_to_dept_id === filters.departmentId);
+        }
+        if (filters.overdue) {
+          const today = new Date().toISOString().split('T')[0];
+          list = list.filter(
+            (al) =>
+              al.status === 'active' &&
+              al.expected_return_date &&
+              al.expected_return_date < today,
+          );
+        }
+        return list.map((al) => ({
+          ...al,
+          asset: mockAssets.find((a) => a.id === al.asset_id) || null,
+          holder: mockEmployees.find((e) => e.id === al.allocated_to_user_id) || null,
+          holder_dept: mockDepartments.find((d) => d.id === al.allocated_to_dept_id) || null,
+          allocated_by: mockEmployees.find((e) => e.id === al.allocated_by_id) || null,
+        }));
+      }
+
       let query = supabase
         .from('allocations')
         .select(`
@@ -68,6 +104,20 @@ export function useAllocation(id) {
   return useQuery({
     queryKey: queryKeys.allocations.detail(id),
     queryFn: async () => {
+      if (useMock) {
+        await delay();
+        const al = mockAllocations.find((a) => a.id === id);
+        if (!al) throw new Error('Allocation not found');
+        return {
+          ...al,
+          asset: mockAssets.find((a) => a.id === al.asset_id) || null,
+          holder: mockEmployees.find((e) => e.id === al.allocated_to_user_id) || null,
+          holder_dept: mockDepartments.find((d) => d.id === al.allocated_to_dept_id) || null,
+          allocated_by: mockEmployees.find((e) => e.id === al.allocated_by_id) || null,
+          transfer_requests: mockTransferRequests.filter((t) => t.allocation_id === id),
+        };
+      }
+
       const { data, error } = await supabase
         .from('allocations')
         .select(`
@@ -101,6 +151,19 @@ export function useMyAllocations() {
   return useQuery({
     queryKey: queryKeys.allocations.list({ scope: 'mine' }),
     queryFn: async () => {
+      if (useMock) {
+        await delay();
+        // Return allocations for emp-4 Jane Doe (our default simulated employee)
+        const list = mockAllocations.filter(
+          (al) => al.allocated_to_user_id === 'emp-4' && al.status === 'active',
+        );
+        return list.map((al) => ({
+          ...al,
+          asset: mockAssets.find((a) => a.id === al.asset_id) || null,
+          allocated_by: mockEmployees.find((e) => e.id === al.allocated_by_id) || null,
+        }));
+      }
+
       const {
         data: { user },
       } = await supabase.auth.getUser();
@@ -123,3 +186,4 @@ export function useMyAllocations() {
     },
   });
 }
+

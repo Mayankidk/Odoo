@@ -1,6 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/config/supabase';
 import { queryKeys } from '@/config/queryKeys';
+import { mockBookings, mockAssets, mockEmployees, mockCategories, delay } from '@/config/mockData';
+
+const useMock = import.meta.env.VITE_USE_MOCK_DATA === 'true';
 
 /**
  * Fetch bookings with optional filters.
@@ -18,6 +21,31 @@ export function useBookings(filters = {}) {
   return useQuery({
     queryKey: queryKeys.bookings.list(filters),
     queryFn: async () => {
+      if (useMock) {
+        await delay();
+        let list = [...mockBookings];
+        if (filters.status) {
+          list = list.filter((b) => b.status === filters.status);
+        }
+        if (filters.resourceId) {
+          list = list.filter((b) => b.resource_id === filters.resourceId);
+        }
+        if (filters.userId) {
+          list = list.filter((b) => b.booked_by_id === filters.userId);
+        }
+        if (filters.from) {
+          list = list.filter((b) => b.start_time >= filters.from);
+        }
+        if (filters.to) {
+          list = list.filter((b) => b.end_time <= filters.to);
+        }
+        return list.map((b) => ({
+          ...b,
+          resource: mockAssets.find((a) => a.id === b.resource_id) || null,
+          booked_by: mockEmployees.find((e) => e.id === b.booked_by_id) || null,
+        }));
+      }
+
       let query = supabase
         .from('bookings')
         .select(`
@@ -65,6 +93,23 @@ export function useBooking(id) {
   return useQuery({
     queryKey: queryKeys.bookings.detail(id),
     queryFn: async () => {
+      if (useMock) {
+        await delay();
+        const b = mockBookings.find((bk) => bk.id === id);
+        if (!b) throw new Error('Booking not found');
+        const resource = mockAssets.find((a) => a.id === b.resource_id) || null;
+        return {
+          ...b,
+          resource: resource
+            ? {
+                ...resource,
+                category: mockCategories.find((c) => c.id === resource.category_id) || null,
+              }
+            : null,
+          booked_by: mockEmployees.find((e) => e.id === b.booked_by_id) || null,
+        };
+      }
+
       const { data, error } = await supabase
         .from('bookings')
         .select(`
@@ -93,6 +138,16 @@ export function useResourceCalendar(resourceId, range) {
   return useQuery({
     queryKey: queryKeys.bookings.calendar({ resourceId, ...range }),
     queryFn: async () => {
+      if (useMock) {
+        await delay();
+        return mockBookings
+          .filter((b) => b.resource_id === resourceId && b.status !== 'cancelled')
+          .map((b) => ({
+            ...b,
+            booked_by: mockEmployees.find((e) => e.id === b.booked_by_id) || null,
+          }));
+      }
+
       const { data, error } = await supabase
         .from('bookings')
         .select(`
@@ -121,6 +176,17 @@ export function useMyBookings() {
   return useQuery({
     queryKey: queryKeys.bookings.list({ scope: 'mine' }),
     queryFn: async () => {
+      if (useMock) {
+        await delay();
+        // emp-4 (Jane Doe) is our mock employee
+        return mockBookings
+          .filter((b) => b.booked_by_id === 'emp-4' && ['upcoming', 'ongoing'].includes(b.status))
+          .map((b) => ({
+            ...b,
+            resource: mockAssets.find((a) => a.id === b.resource_id) || null,
+          }));
+      }
+
       const {
         data: { user },
       } = await supabase.auth.getUser();
@@ -142,3 +208,4 @@ export function useMyBookings() {
     },
   });
 }
+

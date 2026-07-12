@@ -1,33 +1,29 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/config/supabase';
 import { queryKeys } from '@/config/queryKeys';
+import { mockDashboardKPIs, mockAllocations, mockAssets, mockEmployees, delay } from '@/config/mockData';
+
+const useMock = import.meta.env.VITE_USE_MOCK_DATA === 'true';
 
 /**
  * Fetch dashboard KPIs using the `get_dashboard_kpis` RPC.
- * The RPC is role-aware — it scopes counts to the user's department for
- * non-admin roles.
  *
- * @returns {import('@tanstack/react-query').UseQueryResult<{
- *   assets_available: number,
- *   assets_allocated: number,
- *   maintenance_today: number,
- *   active_bookings: number,
- *   pending_transfers: number,
- *   upcoming_returns: number,
- *   overdue_returns: number,
- * }>}
+ * @returns {import('@tanstack/react-query').UseQueryResult}
  */
 export function useDashboardKPIs() {
   return useQuery({
     queryKey: queryKeys.dashboard.kpis(),
     queryFn: async () => {
+      if (useMock) {
+        await delay();
+        return mockDashboardKPIs;
+      }
+
       const { data, error } = await supabase.rpc('get_dashboard_kpis');
       if (error) throw error;
       return data;
     },
-    // Refresh every 60 seconds so counts stay current
     refetchInterval: 60_000,
-    // Keep showing previous counts while refetching
     placeholderData: (previousData) => previousData,
   });
 }
@@ -41,6 +37,21 @@ export function useOverdueReturns() {
   return useQuery({
     queryKey: queryKeys.dashboard.overdueReturns(),
     queryFn: async () => {
+      if (useMock) {
+        await delay();
+        // Since mock data is static, we can return empty or simulate one overdue allocation
+        const today = new Date().toISOString().split('T')[0];
+        const overdue = mockAllocations
+          .filter((al) => al.status === 'active' && al.expected_return_date < today)
+          .map((al) => ({
+            ...al,
+            asset: mockAssets.find((a) => a.id === al.asset_id) || null,
+            holder: mockEmployees.find((e) => e.id === al.allocated_to_user_id) || null,
+            holder_dept: null,
+          }));
+        return overdue;
+      }
+
       const today = new Date().toISOString().split('T')[0];
 
       const { data, error } = await supabase
@@ -72,6 +83,22 @@ export function usePendingApprovals() {
   return useQuery({
     queryKey: queryKeys.dashboard.pendingApprovals(),
     queryFn: async () => {
+      if (useMock) {
+        await delay();
+        return {
+          transfers: [
+            {
+              id: 'trans-1',
+              reason: 'Need this MacBook for high-intensity processing tests.',
+              created_at: '2026-07-11T14:30:00Z',
+              requested_by: { id: 'emp-2', name: 'Mayank Kumar' },
+              allocation: { asset: { id: 'asset-1', asset_tag: 'AF-0001', name: 'MacBook Pro 16" M3' } },
+            },
+          ],
+          maintenance: [],
+        };
+      }
+
       const [transfers, maintenance] = await Promise.all([
         supabase
           .from('transfer_requests')
@@ -107,3 +134,4 @@ export function usePendingApprovals() {
     refetchInterval: 60_000,
   });
 }
+

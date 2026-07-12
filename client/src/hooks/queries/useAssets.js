@@ -2,6 +2,9 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/config/supabase';
 import { queryKeys } from '@/config/queryKeys';
 import { DEFAULT_PAGE_SIZE } from '@/config/constants';
+import { mockAssets, mockCategories, mockDepartments, mockEmployees, delay } from '@/config/mockData';
+
+const useMock = import.meta.env.VITE_USE_MOCK_DATA === 'true';
 
 /**
  * Fetch assets with optional filters and pagination.
@@ -26,6 +29,46 @@ export function useAssets(filters = {}) {
       const pageSize = filters.pageSize ?? DEFAULT_PAGE_SIZE;
       const from = page * pageSize;
       const to = from + pageSize - 1;
+
+      if (useMock) {
+        await delay();
+        let list = [...mockAssets];
+
+        if (filters.status) {
+          list = list.filter((a) => a.status === filters.status);
+        }
+        if (filters.categoryId) {
+          list = list.filter((a) => a.category_id === filters.categoryId);
+        }
+        if (filters.departmentId) {
+          list = list.filter((a) => a.department_id === filters.departmentId);
+        }
+        if (filters.condition) {
+          list = list.filter((a) => a.condition === filters.condition);
+        }
+        if (filters.isBookable !== undefined) {
+          list = list.filter((a) => a.is_bookable === filters.isBookable);
+        }
+        if (filters.search) {
+          const searchLower = filters.search.toLowerCase();
+          list = list.filter(
+            (a) =>
+              a.name.toLowerCase().includes(searchLower) ||
+              a.asset_tag.toLowerCase().includes(searchLower) ||
+              (a.serial_number && a.serial_number.toLowerCase().includes(searchLower)),
+          );
+        }
+
+        const count = list.length;
+        const paginatedList = list.slice(from, to + 1).map((a) => ({
+          ...a,
+          category: mockCategories.find((c) => c.id === a.category_id) || null,
+          department: mockDepartments.find((d) => d.id === a.department_id) || null,
+          registered_by_user: mockEmployees.find((e) => e.id === a.registered_by) || null,
+        }));
+
+        return { data: paginatedList, count, page, pageSize };
+      }
 
       let query = supabase
         .from('assets')
@@ -84,6 +127,22 @@ export function useAsset(id) {
   return useQuery({
     queryKey: queryKeys.assets.detail(id),
     queryFn: async () => {
+      if (useMock) {
+        await delay();
+        const asset = mockAssets.find((a) => a.id === id);
+        if (!asset) throw new Error('Asset not found');
+
+        return {
+          ...asset,
+          category: mockCategories.find((c) => c.id === asset.category_id) || null,
+          department: mockDepartments.find((d) => d.id === asset.department_id) || null,
+          registered_by_user: mockEmployees.find((e) => e.id === asset.registered_by) || null,
+          documents: [],
+          allocations: [],
+          maintenance_requests: [],
+        };
+      }
+
       const { data, error } = await supabase
         .from('assets')
         .select(`
@@ -113,3 +172,4 @@ export function useAsset(id) {
     enabled: !!id,
   });
 }
+

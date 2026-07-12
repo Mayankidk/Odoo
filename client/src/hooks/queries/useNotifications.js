@@ -1,6 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/config/supabase';
 import { queryKeys } from '@/config/queryKeys';
+import { mockNotifications, delay } from '@/config/mockData';
+
+const useMock = import.meta.env.VITE_USE_MOCK_DATA === 'true';
 
 /**
  * Fetch notifications for the current user.
@@ -12,6 +15,15 @@ export function useNotifications(filters = {}) {
   return useQuery({
     queryKey: queryKeys.notifications.list(filters),
     queryFn: async () => {
+      if (useMock) {
+        await delay();
+        let list = [...mockNotifications];
+        if (filters.unreadOnly) {
+          list = list.filter((n) => !n.is_read);
+        }
+        return list;
+      }
+
       let query = supabase
         .from('notifications')
         .select('*')
@@ -26,7 +38,6 @@ export function useNotifications(filters = {}) {
       if (error) throw error;
       return data;
     },
-    // Poll every 30s to keep the bell icon count fresh
     refetchInterval: 30_000,
   });
 }
@@ -40,6 +51,11 @@ export function useUnreadNotificationCount() {
   return useQuery({
     queryKey: queryKeys.notifications.unreadCount(),
     queryFn: async () => {
+      if (useMock) {
+        await delay();
+        return mockNotifications.filter((n) => !n.is_read).length;
+      }
+
       const { count, error } = await supabase
         .from('notifications')
         .select('*', { count: 'exact', head: true })
@@ -51,3 +67,4 @@ export function useUnreadNotificationCount() {
     refetchInterval: 30_000,
   });
 }
+
