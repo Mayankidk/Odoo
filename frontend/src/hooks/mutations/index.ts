@@ -3,3 +3,5 @@ export { useAllocateAsset, useRegisterAsset, useReturnAsset } from "./useAssetMu
 export { useCreateAuditCycle, useUpdateAuditItem, useCloseAuditCycle } from "./useAuditMutations"
 export { useBookResource, useCancelBooking } from "./useBookingMutations"
 export { useCreateMaintenanceRequest, useUpdateMaintenanceStatus } from "./useMaintenanceMutations"
+export { useCreateTransferRequest, useApproveTransferRequest, useRejectTransferRequest } from "./useTransferMutations"
+

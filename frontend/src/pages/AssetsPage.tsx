@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react"
-import { useRegisterAsset, useAllocateAsset, useReturnAsset } from "@/hooks/mutations"
+import { useRegisterAsset, useAllocateAsset, useReturnAsset, useCreateTransferRequest } from "@/hooks/mutations"
 import { useAssets, useCategories, useDepartments, useEmployees } from "@/hooks/queries"
 import type { Asset, AssetCondition, AssetStatus } from "@/lib/database.types"
 import { useAuthStore } from "@/stores/authStore"
@@ -24,6 +24,8 @@ export function AssetsPage() {
   // Modals state
   const [allocateAsset, setAllocateAsset] = useState<Asset | null>(null)
   const [returnAsset, setReturnAsset] = useState<{ asset: Asset; allocationId: string } | null>(null)
+  const [registerCategoryId, setRegisterCategoryId] = useState("")
+  const [transferAllocation, setTransferAllocation] = useState<any | null>(null)
 
   const user = useAuthStore((state) => state.user)
   
@@ -45,9 +47,8 @@ export function AssetsPage() {
   const registerAssetMutation = useRegisterAsset()
   const allocateAssetMutation = useAllocateAsset()
   const returnAssetMutation = useReturnAsset()
+  const createTransferMutation = useCreateTransferRequest()
 
-  // Fetch active allocations to find allocation id for returning
-  // In a real app we might fetch it on demand, here we can fetch it when needed or query from DB.
   // Let's create a helper to handle allocation return.
   const handleReturnClick = async (asset: Asset) => {
     // To return an asset, we need its active allocation ID.
@@ -68,6 +69,33 @@ export function AssetsPage() {
     setReturnAsset({ asset, allocationId: data.id })
   }
 
+  const handleTransferClick = async (asset: Asset) => {
+    const { supabase } = await import("@/lib/supabase")
+    const { data, error } = await supabase
+      .from("allocations")
+      .select(`
+        id,
+        asset_id,
+        allocated_to_user_id,
+        allocated_to_dept_id,
+        user:users!allocations_allocated_to_user_id_fkey(name),
+        department:departments!allocations_allocated_to_dept_id_fkey(name)
+      `)
+      .eq("asset_id", asset.id)
+      .eq("status", "active")
+      .single()
+
+    if (error || !data) {
+      toast.error("Could not find an active allocation for this asset.")
+      return
+    }
+
+    setTransferAllocation({
+      ...data,
+      asset,
+    })
+  }
+
   async function handleRegisterAsset(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
 
@@ -78,9 +106,23 @@ export function AssetsPage() {
 
     const form = new FormData(event.currentTarget)
     const acquisitionCost = String(form.get("acquisition_cost") || "")
+    
+    // Dynamic Custom Fields mapping
+    const selectedRegCat = categories.data?.find((c) => c.id === registerCategoryId)
+    const customFieldsSchema = selectedRegCat?.custom_fields_schema as Record<string, { type?: string; label?: string }> | undefined
+    const customFields: Record<string, any> = {}
+    if (customFieldsSchema) {
+      for (const [key, def] of Object.entries(customFieldsSchema) as any) {
+        const val = form.get(`custom_fields_${key}`)
+        if (val !== null && val !== "") {
+          customFields[key] = def?.type === "number" ? Number(val) : val
+        }
+      }
+    }
+
     const payload: Partial<Asset> = {
       name: String(form.get("name") ?? "").trim(),
-      category_id: String(form.get("category_id") ?? ""),
+      category_id: registerCategoryId,
       serial_number: String(form.get("serial_number") || "") || null,
       acquisition_date: String(form.get("acquisition_date") || "") || null,
       acquisition_cost: acquisitionCost ? Number(acquisitionCost) : null,
@@ -89,13 +131,14 @@ export function AssetsPage() {
       department_id: String(form.get("department_id") || "") || null,
       is_bookable: form.get("is_bookable") === "on",
       registered_by: user.id,
-      custom_fields: {},
+      custom_fields: customFields,
       status: "available",
     }
 
     try {
       await registerAssetMutation.mutateAsync(payload)
       event.currentTarget.reset()
+      setRegisterCategoryId("")
       toast.success("Asset registered successfully!")
     } catch (error) {
       toast.error(getErrorMessage(error))
@@ -151,6 +194,26 @@ export function AssetsPage() {
       toast.error(getErrorMessage(error))
     }
   }
+
+  async function handleTransferSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!transferAllocation) return
+
+    const form = new FormData(event.currentTarget)
+    const reason = String(form.get("reason")).trim()
+
+    try {
+      await createTransferMutation.mutateAsync({
+        allocationId: transferAllocation.id,
+        reason: reason || null,
+      })
+      toast.success("Transfer request submitted successfully!")
+      setTransferAllocation(null)
+    } catch (error) {
+      toast.error(getErrorMessage(error))
+    }
+  }
+
 
   const getStatusColor = (status: AssetStatus) => {
     switch (status) {
@@ -245,6 +308,15 @@ export function AssetsPage() {
                         <td className="px-6 py-4">
                           <div className="font-semibold text-slate-900">{asset.name}</div>
                           <div className="text-xs text-slate-400 font-mono mt-0.5">{asset.asset_tag}</div>
+                          {asset.custom_fields && Object.keys(asset.custom_fields).length > 0 && (
+                            <div className="text-xs text-slate-500 mt-1.5 flex flex-wrap gap-1">
+                              {Object.entries(asset.custom_fields).map(([key, val]: [string, any]) => (
+                                <span key={key} className="bg-slate-100/80 text-slate-600 px-2 py-0.5 rounded text-[10px] border border-slate-200/50">
+                                  <strong className="font-semibold capitalize">{key.replace(/_/g, " ")}:</strong> {String(val)}
+                                </span>
+                              ))}
+                            </div>
+                          )}
                         </td>
                         <td className="px-6 py-4 text-slate-600">
                           {/* @ts-ignore */}
@@ -267,12 +339,20 @@ export function AssetsPage() {
                             </button>
                           )}
                           {asset.status === "allocated" && (
-                            <button 
-                              onClick={() => handleReturnClick(asset)}
-                              className="text-xs font-semibold text-emerald-600 hover:text-emerald-500 bg-emerald-50 hover:bg-emerald-100/50 px-2.5 py-1.5 rounded-lg transition-colors"
-                            >
-                              Return
-                            </button>
+                            <div className="flex gap-2 justify-end">
+                              <button 
+                                onClick={() => handleReturnClick(asset)}
+                                className="text-xs font-semibold text-emerald-600 hover:text-emerald-500 bg-emerald-50 hover:bg-emerald-100/50 px-2.5 py-1.5 rounded-lg transition-colors"
+                              >
+                                Return
+                              </button>
+                              <button 
+                                onClick={() => handleTransferClick(asset)}
+                                className="text-xs font-semibold text-purple-600 hover:text-purple-500 bg-purple-50 hover:bg-purple-100/50 px-2.5 py-1.5 rounded-lg transition-colors"
+                              >
+                                Transfer
+                              </button>
+                            </div>
                           )}
                         </td>
                       </tr>
@@ -341,6 +421,8 @@ export function AssetsPage() {
               <select 
                 name="category_id" 
                 required 
+                value={registerCategoryId}
+                onChange={(e) => setRegisterCategoryId(e.target.value)}
                 className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
               >
                 <option value="">Select category</option>
@@ -349,6 +431,34 @@ export function AssetsPage() {
                 ))}
               </select>
             </div>
+
+            {/* Dynamic Custom Fields */}
+            {(() => {
+              const selectedRegCat = categories.data?.find((c) => c.id === registerCategoryId);
+              const customFieldsSchema = selectedRegCat?.custom_fields_schema as Record<string, { type?: string; label?: string }> | undefined;
+              if (!customFieldsSchema || Object.keys(customFieldsSchema).length === 0) return null;
+
+              return (
+                <div className="space-y-3 pt-3 border-t border-slate-100">
+                  <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider">Category Custom Fields</h3>
+                  {Object.entries(customFieldsSchema).map(([key, def]: [string, any]) => {
+                    const type = def?.type === "number" ? "number" : def?.type === "date" ? "date" : "text";
+                    const label = def?.label ?? key.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+                    return (
+                      <div key={key}>
+                        <label className="block text-xs font-semibold text-slate-700 mb-1">{label}</label>
+                        <input 
+                          name={`custom_fields_${key}`} 
+                          type={type}
+                          placeholder={`Enter ${label.toLowerCase()}...`}
+                          className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none" 
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
 
             <div className="grid gap-3 sm:grid-cols-2">
               <div>
@@ -578,6 +688,62 @@ export function AssetsPage() {
                   className="px-4 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-500 shadow-sm disabled:opacity-60 transition-colors"
                 >
                   {returnAssetMutation.isPending ? "Returning..." : "Complete Return"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Transfer Request Modal */}
+      {transferAllocation && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full border border-slate-200/80 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4 bg-slate-50/50">
+              <div>
+                <h3 className="text-lg font-semibold text-slate-900">Request Transfer</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Request transfer for "{transferAllocation.asset.name}"</p>
+              </div>
+              <button 
+                onClick={() => setTransferAllocation(null)}
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <form onSubmit={handleTransferSubmit} className="p-6 space-y-4">
+              <p className="text-xs text-slate-600">
+                This asset is currently allocated to{" "}
+                <strong className="font-semibold text-slate-950">
+                  {transferAllocation.user?.name || transferAllocation.department?.name || "Unknown holder"}
+                </strong>.
+              </p>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">Reason for Transfer *</label>
+                <textarea 
+                  name="reason"
+                  required
+                  placeholder="Why is this transfer being requested?"
+                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none h-24"
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
+                <button 
+                  type="button" 
+                  onClick={() => setTransferAllocation(null)}
+                  className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit" 
+                  disabled={createTransferMutation.isPending}
+                  className="px-4 py-2 text-sm font-medium text-white bg-purple-600 hover:bg-purple-500 shadow-sm disabled:opacity-60 transition-colors"
+                >
+                  {createTransferMutation.isPending ? "Submitting..." : "Submit Request"}
                 </button>
               </div>
             </form>

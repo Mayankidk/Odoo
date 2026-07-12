@@ -39,10 +39,25 @@ export function useUpdateUserRole() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ userId, role }: { userId: string; role: UserRole }) => {
+    mutationFn: async ({
+      userId,
+      role,
+      departmentId,
+      status,
+    }: {
+      userId: string
+      role?: UserRole
+      departmentId?: string | null
+      status?: "active" | "inactive"
+    }) => {
+      const updates: Partial<User> = {}
+      if (role !== undefined) updates.role = role
+      if (departmentId !== undefined) updates.department_id = departmentId
+      if (status !== undefined) updates.status = status
+
       const { data, error } = await supabase
         .from("users")
-        .update({ role } satisfies Partial<User>)
+        .update(updates)
         .eq("id", userId)
         .select()
         .single()

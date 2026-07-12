@@ -1,4 +1,5 @@
-import { useState, type FormEvent } from "react"
+import { useState, useEffect, type FormEvent } from "react"
+import { useLocation } from "react-router-dom"
 import { useCreateMaintenanceRequest, useUpdateMaintenanceStatus } from "@/hooks/mutations"
 import { useMaintenanceRequests, useAssets, useEmployees } from "@/hooks/queries"
 import type { MaintenancePriority, MaintenanceStatus, MaintenanceRequest } from "@/lib/database.types"
@@ -10,8 +11,16 @@ import { cn } from "@/lib/utils"
 const priorities: MaintenancePriority[] = ["low", "medium", "high", "critical"]
 
 export function MaintenancePage() {
+  const location = useLocation()
   const [selectedRequest, setSelectedRequest] = useState<any | null>(null)
   const [isRequestModalOpen, setIsRequestModalOpen] = useState(false)
+
+  useEffect(() => {
+    if (location.state?.openModal) {
+      setIsRequestModalOpen(true)
+      window.history.replaceState({}, document.title)
+    }
+  }, [location.state])
   const [rejectingRequest, setRejectingRequest] = useState<any | null>(null)
   const [resolvingRequest, setResolvingRequest] = useState<any | null>(null)
 

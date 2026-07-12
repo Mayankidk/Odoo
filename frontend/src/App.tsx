@@ -10,6 +10,8 @@ import { SignupPage } from "./pages/SignupPage";
 import { BookingsPage } from "./pages/BookingsPage";
 import { MaintenancePage } from "./pages/MaintenancePage";
 import { AuditPage } from "./pages/AuditPage";
+import { UsersPage } from "./pages/UsersPage";
+
 
 function App() {
   return (
@@ -25,7 +27,7 @@ function App() {
               <Route path="bookings" element={<BookingsPage />} />
               <Route path="maintenance" element={<MaintenancePage />} />
               <Route path="audits" element={<AuditPage />} />
-              <Route path="users" element={<div className="p-4">Users Page Placeholder</div>} />
+              <Route path="users" element={<UsersPage />} />
               <Route path="settings" element={<OrganizationSetupPage />} />
             </Route>
           </Route>

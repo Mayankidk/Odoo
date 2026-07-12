@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, Plus, Calendar as CalendarIcon, Clock, MapPin, Trash2, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useBookings, useAssets } from '@/hooks/queries';
@@ -6,8 +7,16 @@ import { useBookResource, useCancelBooking } from '@/hooks/mutations';
 import { toast } from 'sonner';
 
 export function BookingsPage() {
+  const location = useLocation();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  useEffect(() => {
+    if (location.state?.openModal) {
+      setIsModalOpen(true);
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
 
   // Queries
   const { data: bookings = [], isLoading: isLoadingBookings, error: bookingsError } = useBookings();
