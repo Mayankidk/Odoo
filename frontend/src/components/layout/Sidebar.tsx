@@ -26,14 +26,15 @@ type NavItem = {
 
 const navigation: NavItem[] = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
-  { name: 'Organization setup', href: '/settings', icon: Settings },
+  { name: 'Organization Setup', href: '/settings', icon: Settings },
   { name: 'Assets', href: '/assets', icon: Package },
-  { name: 'Allocation & Transfer', href: '/users', icon: Users },
+  { name: 'Allocation & Transfer', href: '/assets', icon: Users },
   { name: 'Resource Booking', href: '/bookings', icon: CalendarDays },
   { name: 'Maintenance', href: '/maintenance', icon: Wrench },
   { name: 'Audit', href: '/audits', icon: ShieldCheck },
   { name: 'Reports', href: '/analytics', icon: TrendingUp },
   { name: 'Notifications', href: '/notifications', icon: Bell },
+  { name: 'Users', href: '/users', icon: Users, roles: ['admin', 'asset_manager'] },
 ];
 
 export function Sidebar() {
