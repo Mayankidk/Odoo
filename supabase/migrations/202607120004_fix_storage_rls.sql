@@ -1,0 +1,3 @@
+-- This migration is superseded by the updated 202607120002_rls_rpc_storage.sql
+-- which already includes idempotent drop-then-create for all storage policies.
+-- Kept as a no-op to preserve migration history.

@@ -57,6 +57,10 @@ alter table public.audit_items enable row level security;
 alter table public.notifications enable row level security;
 alter table public.audit_logs enable row level security;
 
+-- users
+drop policy if exists "Users can view active directory" on public.users;
+drop policy if exists "Users can update own profile basics" on public.users;
+drop policy if exists "Admins can manage users" on public.users;
 create policy "Users can view active directory" on public.users
   for select to authenticated using (status = 'active' or public.is_admin());
 create policy "Users can update own profile basics" on public.users
@@ -68,16 +72,27 @@ create policy "Users can update own profile basics" on public.users
 create policy "Admins can manage users" on public.users
   for all to authenticated using (public.is_admin()) with check (public.is_admin());
 
+-- departments
+drop policy if exists "Authenticated users can view departments" on public.departments;
+drop policy if exists "Admins can manage departments" on public.departments;
 create policy "Authenticated users can view departments" on public.departments
   for select to authenticated using (true);
 create policy "Admins can manage departments" on public.departments
   for all to authenticated using (public.is_admin()) with check (public.is_admin());
 
+-- asset_categories
+drop policy if exists "Authenticated users can view categories" on public.asset_categories;
+drop policy if exists "Admins can manage categories" on public.asset_categories;
 create policy "Authenticated users can view categories" on public.asset_categories
   for select to authenticated using (true);
 create policy "Admins can manage categories" on public.asset_categories
   for all to authenticated using (public.is_admin()) with check (public.is_admin());
 
+-- assets
+drop policy if exists "Authenticated users can view assets" on public.assets;
+drop policy if exists "Managers can insert assets" on public.assets;
+drop policy if exists "Managers can update assets" on public.assets;
+drop policy if exists "Admins can delete assets" on public.assets;
 create policy "Authenticated users can view assets" on public.assets
   for select to authenticated using (true);
 create policy "Managers can insert assets" on public.assets
@@ -87,11 +102,17 @@ create policy "Managers can update assets" on public.assets
 create policy "Admins can delete assets" on public.assets
   for delete to authenticated using (public.is_admin());
 
+-- asset_documents
+drop policy if exists "Authenticated users can view asset documents" on public.asset_documents;
+drop policy if exists "Managers can manage asset documents" on public.asset_documents;
 create policy "Authenticated users can view asset documents" on public.asset_documents
   for select to authenticated using (true);
 create policy "Managers can manage asset documents" on public.asset_documents
   for all to authenticated using (public.is_manager()) with check (public.is_manager());
 
+-- allocations
+drop policy if exists "Users can view relevant allocations" on public.allocations;
+drop policy if exists "Managers can manage allocations" on public.allocations;
 create policy "Users can view relevant allocations" on public.allocations
   for select to authenticated using (
     public.is_manager()
@@ -104,6 +125,10 @@ create policy "Users can view relevant allocations" on public.allocations
 create policy "Managers can manage allocations" on public.allocations
   for all to authenticated using (public.is_manager()) with check (public.is_manager());
 
+-- transfer_requests
+drop policy if exists "Users can view relevant transfer requests" on public.transfer_requests;
+drop policy if exists "Employees can request transfers" on public.transfer_requests;
+drop policy if exists "Managers and department heads can update transfers" on public.transfer_requests;
 create policy "Users can view relevant transfer requests" on public.transfer_requests
   for select to authenticated using (
     public.is_manager()
@@ -124,6 +149,10 @@ create policy "Managers and department heads can update transfers" on public.tra
   for update to authenticated using (public.is_manager() or public.is_department_head())
   with check (public.is_manager() or public.is_department_head());
 
+-- bookings
+drop policy if exists "Users can view relevant bookings" on public.bookings;
+drop policy if exists "Authenticated users can book resources" on public.bookings;
+drop policy if exists "Users can update own bookings" on public.bookings;
 create policy "Users can view relevant bookings" on public.bookings
   for select to authenticated using (public.is_manager() or booked_by_id = auth.uid());
 create policy "Authenticated users can book resources" on public.bookings
@@ -132,6 +161,10 @@ create policy "Users can update own bookings" on public.bookings
   for update to authenticated using (booked_by_id = auth.uid() or public.is_manager())
   with check (booked_by_id = auth.uid() or public.is_manager());
 
+-- maintenance_requests
+drop policy if exists "Users can view relevant maintenance requests" on public.maintenance_requests;
+drop policy if exists "Authenticated users can raise maintenance" on public.maintenance_requests;
+drop policy if exists "Managers and technicians can update maintenance" on public.maintenance_requests;
 create policy "Users can view relevant maintenance requests" on public.maintenance_requests
   for select to authenticated using (
     public.is_manager()
@@ -146,6 +179,9 @@ create policy "Managers and technicians can update maintenance" on public.mainte
   )
   with check (public.is_manager() or assigned_technician_id = auth.uid());
 
+-- audit_cycles
+drop policy if exists "Managers can view audit cycles" on public.audit_cycles;
+drop policy if exists "Managers can manage audit cycles" on public.audit_cycles;
 create policy "Managers can view audit cycles" on public.audit_cycles
   for select to authenticated using (
     public.is_manager()
@@ -157,11 +193,18 @@ create policy "Managers can view audit cycles" on public.audit_cycles
 create policy "Managers can manage audit cycles" on public.audit_cycles
   for all to authenticated using (public.is_manager()) with check (public.is_manager());
 
+-- audit_cycle_auditors
+drop policy if exists "Managers and assigned auditors can view audit assignments" on public.audit_cycle_auditors;
+drop policy if exists "Managers can manage audit assignments" on public.audit_cycle_auditors;
 create policy "Managers and assigned auditors can view audit assignments" on public.audit_cycle_auditors
   for select to authenticated using (public.is_manager() or auditor_id = auth.uid());
 create policy "Managers can manage audit assignments" on public.audit_cycle_auditors
   for all to authenticated using (public.is_manager()) with check (public.is_manager());
 
+-- audit_items
+drop policy if exists "Managers and assigned auditors can view audit items" on public.audit_items;
+drop policy if exists "Managers can create audit items" on public.audit_items;
+drop policy if exists "Assigned auditors can update audit items" on public.audit_items;
 create policy "Managers and assigned auditors can view audit items" on public.audit_items
   for select to authenticated using (
     public.is_manager()
@@ -194,6 +237,10 @@ create policy "Assigned auditors can update audit items" on public.audit_items
     )
   );
 
+-- notifications
+drop policy if exists "Users can view own notifications" on public.notifications;
+drop policy if exists "Users can mark own notifications read" on public.notifications;
+drop policy if exists "Managers can create notifications" on public.notifications;
 create policy "Users can view own notifications" on public.notifications
   for select to authenticated using (user_id = auth.uid() or public.is_manager());
 create policy "Users can mark own notifications read" on public.notifications
@@ -201,6 +248,9 @@ create policy "Users can mark own notifications read" on public.notifications
 create policy "Managers can create notifications" on public.notifications
   for insert to authenticated with check (public.is_manager());
 
+-- audit_logs
+drop policy if exists "Managers can view audit logs" on public.audit_logs;
+drop policy if exists "Managers can create audit logs" on public.audit_logs;
 create policy "Managers can view audit logs" on public.audit_logs
   for select to authenticated using (public.is_manager());
 create policy "Managers can create audit logs" on public.audit_logs
@@ -404,12 +454,27 @@ set public = excluded.public,
     file_size_limit = excluded.file_size_limit,
     allowed_mime_types = excluded.allowed_mime_types;
 
+-- storage.objects policies (drop first to allow re-runs)
+drop policy if exists "Authenticated users can view asset documents bucket" on storage.objects;
+drop policy if exists "Managers can upload asset documents" on storage.objects;
+drop policy if exists "Managers can update asset documents" on storage.objects;
+drop policy if exists "Managers can delete asset documents" on storage.objects;
+-- also drop the fixed policy names in case migration 004 already ran
+drop policy if exists "Authenticated users can upload asset documents" on storage.objects;
+drop policy if exists "Authenticated users can update asset documents" on storage.objects;
+
 create policy "Authenticated users can view asset documents bucket" on storage.objects
   for select to authenticated using (bucket_id = 'asset-documents');
-create policy "Managers can upload asset documents" on storage.objects
-  for insert to authenticated with check (bucket_id = 'asset-documents' and public.is_manager());
-create policy "Managers can update asset documents" on storage.objects
-  for update to authenticated using (bucket_id = 'asset-documents' and public.is_manager())
-  with check (bucket_id = 'asset-documents' and public.is_manager());
+-- All authenticated users can upload (employees, dept heads, managers)
+create policy "Authenticated users can upload asset documents" on storage.objects
+  for insert to authenticated
+  with check (bucket_id = 'asset-documents');
+-- All authenticated users can update/replace files
+create policy "Authenticated users can update asset documents" on storage.objects
+  for update to authenticated
+  using (bucket_id = 'asset-documents')
+  with check (bucket_id = 'asset-documents');
+-- Only managers can delete files
 create policy "Managers can delete asset documents" on storage.objects
   for delete to authenticated using (bucket_id = 'asset-documents' and public.is_manager());
+
