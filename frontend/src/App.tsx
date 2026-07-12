@@ -8,6 +8,7 @@ import { LoginPage } from "./pages/LoginPage";
 import { OrganizationSetupPage } from "./pages/OrganizationSetupPage";
 import { SignupPage } from "./pages/SignupPage";
 import { BookingsPage } from "./pages/BookingsPage";
+import { MaintenancePage } from "./pages/MaintenancePage";
 
 function App() {
   return (
@@ -21,7 +22,7 @@ function App() {
               <Route index element={<DashboardPage />} />
               <Route path="assets" element={<AssetsPage />} />
               <Route path="bookings" element={<BookingsPage />} />
-              <Route path="maintenance" element={<div className="p-4">Maintenance Page Placeholder</div>} />
+              <Route path="maintenance" element={<MaintenancePage />} />
               <Route path="users" element={<div className="p-4">Users Page Placeholder</div>} />
               <Route path="settings" element={<OrganizationSetupPage />} />
             </Route>
