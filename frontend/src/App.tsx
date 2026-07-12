@@ -12,7 +12,7 @@ import { MaintenancePage } from "./pages/MaintenancePage";
 import { AuditPage } from "./pages/AuditPage";
 import { UsersPage } from "./pages/UsersPage";
 import { AnalyticsPage } from "./pages/AnalyticsPage";
-import { AuditLogsPage } from "./pages/AuditLogsPage";
+import { NotificationsPage } from "./pages/NotificationsPage";
 import { Toaster } from "@/components/ui/sonner";
 
 
@@ -34,7 +34,7 @@ function App() {
               <Route path="audits" element={<AuditPage />} />
               <Route path="users" element={<UsersPage />} />
               <Route path="analytics" element={<AnalyticsPage />} />
-              <Route path="audit-logs" element={<AuditLogsPage />} />
+              <Route path="notifications" element={<NotificationsPage />} />
               <Route path="settings" element={<OrganizationSetupPage />} />
             </Route>
           </Route>

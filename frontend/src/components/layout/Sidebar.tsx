@@ -12,7 +12,7 @@ import {
   LogOut,
   ShieldCheck,
   TrendingUp,
-  History
+  Bell
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
@@ -26,14 +26,14 @@ type NavItem = {
 
 const navigation: NavItem[] = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
+  { name: 'Organization setup', href: '/settings', icon: Settings },
   { name: 'Assets', href: '/assets', icon: Package },
-  { name: 'Bookings', href: '/bookings', icon: CalendarDays },
+  { name: 'Allocation & Transfer', href: '/users', icon: Users },
+  { name: 'Resource Booking', href: '/bookings', icon: CalendarDays },
   { name: 'Maintenance', href: '/maintenance', icon: Wrench },
-  { name: 'Audits', href: '/audits', icon: ShieldCheck, roles: ['admin', 'asset_manager', 'auditor'] },
-  { name: 'Users', href: '/users', icon: Users, roles: ['admin', 'asset_manager'] },
-  { name: 'Analytics', href: '/analytics', icon: TrendingUp, roles: ['admin', 'asset_manager'] },
-  { name: 'Audit Logs', href: '/audit-logs', icon: History, roles: ['admin', 'asset_manager'] },
-  { name: 'Organization', href: '/settings', icon: Settings, roles: ['admin'] },
+  { name: 'Audit', href: '/audits', icon: ShieldCheck },
+  { name: 'Reports', href: '/analytics', icon: TrendingUp },
+  { name: 'Notifications', href: '/notifications', icon: Bell },
 ];
 
 export function Sidebar() {

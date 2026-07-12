@@ -1,4 +1,4 @@
-import { Bell, LogOut, Menu, Search, Check, CheckSquare, Trash2 } from "lucide-react";
+import { Bell, LogOut, Menu, Search, Check } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
