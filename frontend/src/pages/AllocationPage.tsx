@@ -6,6 +6,7 @@ import {
   useCreateTransferRequest,
   useApproveTransferRequest,
   useRejectTransferRequest,
+  useDirectTransferAsset,
 } from "@/hooks/mutations"
 import { useAuthStore } from "@/stores/authStore"
 import { toast } from "sonner"
@@ -23,6 +24,7 @@ import {
   Send,
   BadgeCheck,
   Ban,
+  Shuffle,
 } from "lucide-react"
 import type { AllocationStatus, AssetCondition } from "@/lib/database.types"
 
@@ -74,6 +76,7 @@ export function AllocationPage() {
   const [returnModal, setReturnModal] = useState<{ allocationId: string; assetName: string } | null>(null)
   const [transferRequestModal, setTransferRequestModal] = useState<{ allocationId: string; assetName: string } | null>(null)
   const [rejectModal, setRejectModal] = useState<{ requestId: string } | null>(null)
+  const [directTransferModal, setDirectTransferModal] = useState<{ allocationId: string; assetName: string; currentHolder: string } | null>(null)
 
   const profile = useAuthStore((s) => s.profile)
   const user = useAuthStore((s) => s.user)
@@ -93,6 +96,7 @@ export function AllocationPage() {
   const createTransferMutation = useCreateTransferRequest()
   const approveMutation = useApproveTransferRequest()
   const rejectMutation = useRejectTransferRequest()
+  const directTransferMutation = useDirectTransferAsset()
 
   const allAllocations = allocationsQuery.data ?? []
 
@@ -178,6 +182,29 @@ export function AllocationPage() {
       await rejectMutation.mutateAsync({ requestId: rejectModal.requestId, rejectionReason: reason })
       toast.success("Transfer request rejected.")
       setRejectModal(null)
+    } catch (err) { toast.error(getErrorMessage(err)) }
+  }
+
+  async function handleDirectTransfer(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    if (!directTransferModal) return
+    const form = new FormData(e.currentTarget)
+    const type = String(form.get("holder_type"))
+    const toUserId = type === "user" ? String(form.get("to_user_id")) || null : null
+    const toDeptId = type === "department" ? String(form.get("to_department_id")) || null : null
+    const expectedReturn = String(form.get("expected_return_date")) || null
+    const notes = String(form.get("notes")) || null
+    if (!toUserId && !toDeptId) { toast.error("Select an employee or department."); return }
+    try {
+      await directTransferMutation.mutateAsync({
+        allocationId: directTransferModal.allocationId,
+        toUserId,
+        toDepartmentId: toDeptId,
+        expectedReturnDate: expectedReturn,
+        notes,
+      })
+      toast.success("Asset transferred successfully!")
+      setDirectTransferModal(null)
     } catch (err) { toast.error(getErrorMessage(err)) }
   }
 
@@ -306,12 +333,20 @@ export function AllocationPage() {
                           <td className="px-6 py-4 text-right">
                             <div className="flex justify-end gap-2 flex-wrap">
                               {isManager && (
-                                <button
-                                  onClick={() => setReturnModal({ allocationId: alloc.id, assetName: (alloc as any).asset?.name ?? "Asset" })}
-                                  className="text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1.5 rounded-lg transition-colors"
-                                >
-                                  Return
-                                </button>
+                                <>
+                                  <button
+                                    onClick={() => setReturnModal({ allocationId: alloc.id, assetName: (alloc as any).asset?.name ?? "Asset" })}
+                                    className="text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1.5 rounded-lg transition-colors"
+                                  >
+                                    Return
+                                  </button>
+                                  <button
+                                    onClick={() => setDirectTransferModal({ allocationId: alloc.id, assetName: (alloc as any).asset?.name ?? "Asset", currentHolder: holderName })}
+                                    className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1.5 rounded-lg transition-colors"
+                                  >
+                                    <Shuffle className="w-3 h-3" /> Transfer
+                                  </button>
+                                </>
                               )}
                               <button
                                 onClick={() => setTransferRequestModal({ allocationId: alloc.id, assetName: (alloc as any).asset?.name ?? "Asset" })}
@@ -648,6 +683,64 @@ export function AllocationPage() {
                 <button type="button" onClick={() => setRejectModal(null)} className="flex-1 rounded-lg border border-slate-200 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">Cancel</button>
                 <button type="submit" disabled={rejectMutation.isPending} className="flex-1 rounded-lg bg-rose-600 py-2 text-sm font-semibold text-white hover:bg-rose-500 disabled:opacity-60 transition-colors">
                   {rejectMutation.isPending ? "Rejecting..." : "Reject Request"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Direct Transfer Modal */}
+      {directTransferModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl border border-slate-200">
+            <div className="px-6 pt-6 pb-4 border-b border-slate-100">
+              <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                <Shuffle className="w-5 h-5 text-indigo-500" /> Direct Transfer
+              </h2>
+              <p className="text-xs text-slate-500 mt-1">
+                Transferring: <strong>{directTransferModal.assetName}</strong>
+                <span className="ml-1 text-slate-400">from <em>{directTransferModal.currentHolder}</em></span>
+              </p>
+            </div>
+            <form onSubmit={handleDirectTransfer} className="p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Assign To *</label>
+                <select name="holder_type" defaultValue="user" className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500">
+                  <option value="user">Employee</option>
+                  <option value="department">Department</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Employee</label>
+                <select name="to_user_id" className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500">
+                  <option value="">Select employee...</option>
+                  {(employeesQuery.data ?? []).map((e: any) => (
+                    <option key={e.id} value={e.id}>{e.name} ({e.email})</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Department</label>
+                <select name="to_department_id" className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500">
+                  <option value="">Select department...</option>
+                  {(departmentsQuery.data ?? []).filter((d) => d.status === "active").map((d) => (
+                    <option key={d.id} value={d.id}>{d.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Expected Return Date</label>
+                <input type="date" name="expected_return_date" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Transfer Notes</label>
+                <textarea name="notes" rows={2} placeholder="Reason for transfer or any handover notes..." className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 resize-none" />
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button type="button" onClick={() => setDirectTransferModal(null)} className="flex-1 rounded-lg border border-slate-200 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors">Cancel</button>
+                <button type="submit" disabled={directTransferMutation.isPending} className="flex-1 rounded-lg bg-indigo-600 py-2 text-sm font-semibold text-white hover:bg-indigo-500 disabled:opacity-60 transition-colors">
+                  {directTransferMutation.isPending ? "Transferring..." : "Transfer Asset"}
                 </button>
               </div>
             </form>

@@ -4,5 +4,5 @@ export { useUploadAssetDocument, useDeleteAssetDocument } from "./useAssetDocume
 export { useCreateAuditCycle, useUpdateAuditItem, useCloseAuditCycle } from "./useAuditMutations"
 export { useBookResource, useCancelBooking } from "./useBookingMutations"
 export { useCreateMaintenanceRequest, useUpdateMaintenanceStatus } from "./useMaintenanceMutations"
-export { useCreateTransferRequest, useApproveTransferRequest, useRejectTransferRequest } from "./useTransferMutations"
+export { useCreateTransferRequest, useApproveTransferRequest, useRejectTransferRequest, useDirectTransferAsset } from "./useTransferMutations"
 

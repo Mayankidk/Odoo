@@ -3,6 +3,76 @@ import { supabase } from "@/lib/supabase"
 import { throwIfError } from "@/lib/errors"
 import { queryKeys } from "@/lib/queryKeys"
 
+type DirectTransferArgs = {
+  allocationId: string
+  toUserId?: string | null
+  toDepartmentId?: string | null
+  expectedReturnDate?: string | null
+  notes?: string | null
+}
+
+export function useDirectTransferAsset() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({
+      allocationId,
+      toUserId = null,
+      toDepartmentId = null,
+      expectedReturnDate = null,
+      notes = null,
+    }: DirectTransferArgs) => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (!user) throw new Error("Not authenticated")
+
+      // 1. Get current allocation details
+      const { data: allocation, error: allocErr } = await supabase
+        .from("allocations")
+        .select("id, asset_id")
+        .eq("id", allocationId)
+        .single()
+
+      throwIfError(allocErr)
+
+      // 2. Mark old allocation as transferred
+      const { error: oldErr } = await supabase
+        .from("allocations")
+        .update({
+          status: "transferred",
+          actual_return_date: new Date().toISOString().split("T")[0],
+          return_notes: notes,
+        })
+        .eq("id", allocationId)
+
+      throwIfError(oldErr)
+
+      // 3. Create new allocation for the new holder
+      const { data: newAlloc, error: newErr } = await supabase
+        .from("allocations")
+        .insert({
+          asset_id: allocation.asset_id,
+          allocated_to_user_id: toUserId,
+          allocated_to_dept_id: toDepartmentId,
+          allocated_by_id: user.id,
+          expected_return_date: expectedReturnDate,
+          status: "active",
+        })
+        .select()
+        .single()
+
+      throwIfError(newErr)
+      return newAlloc
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.allocations })
+      queryClient.invalidateQueries({ queryKey: ["assets"] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.dashboardKpis })
+    },
+  })
+}
+
 type CreateTransferRequestArgs = {
   allocationId: string
   reason?: string | null
