@@ -9,6 +9,28 @@ const EMPTY_FILTERS = {
   location: '',
 };
 
+const STATUS_CLASS_NAMES = {
+  available: 'status-available',
+  allocated: 'status-allocated',
+  reserved: 'status-reserved',
+  under_maintenance: 'status-maintenance',
+  lost: 'status-lost',
+  retired: 'status-retired',
+  disposed: 'status-disposed',
+};
+
+function formatStatus(status) {
+  return status.replaceAll('_', ' ');
+}
+
+export function AssetStatusBadge({ status }) {
+  return (
+    <span className={STATUS_CLASS_NAMES[status] ?? 'status-default'}>
+      {formatStatus(status)}
+    </span>
+  );
+}
+
 /**
  * M4 Asset Directory: filters and base result table.
  *
@@ -22,7 +44,14 @@ export function AssetDirectoryTable({
   departments = [],
   filters: externalFilters,
   isLoading = false,
+  totalCount,
+  page = 1,
+  pageSize = 20,
   onFiltersChange,
+  onPageChange,
+  onViewAsset,
+  onEditAsset,
+  onAllocateAsset,
 }) {
   const [filters, setFilters] = useState({ ...EMPTY_FILTERS, ...externalFilters });
 
@@ -32,6 +61,10 @@ export function AssetDirectoryTable({
 
   const activeCategories = categories.filter((category) => category.status === 'active');
   const activeDepartments = departments.filter((department) => department.status === 'active');
+  const resolvedTotalCount = totalCount ?? assets.length;
+  const totalPages = Math.max(1, Math.ceil(resolvedTotalCount / pageSize));
+  const firstResult = resolvedTotalCount === 0 ? 0 : (page - 1) * pageSize + 1;
+  const lastResult = Math.min(page * pageSize, resolvedTotalCount);
 
   function updateFilter(name, value) {
     setFilters((currentFilters) => ({ ...currentFilters, [name]: value }));
@@ -125,6 +158,12 @@ export function AssetDirectoryTable({
         </div>
       </form>
 
+      {!isLoading && resolvedTotalCount > 0 && (
+        <p aria-live="polite">
+          Showing {firstResult}–{lastResult} of {resolvedTotalCount} assets
+        </p>
+      )}
+
       {isLoading ? (
         <p role="status">Loading assets…</p>
       ) : assets.length === 0 ? (
@@ -141,6 +180,9 @@ export function AssetDirectoryTable({
               <th scope="col">Location</th>
               <th scope="col">Status</th>
               <th scope="col">Bookable</th>
+              {(onViewAsset || onEditAsset || onAllocateAsset) && (
+                <th scope="col"><span className="sr-only">Actions</span></th>
+              )}
             </tr>
           </thead>
           <tbody>
@@ -152,12 +194,45 @@ export function AssetDirectoryTable({
                 <td>{asset.category?.name ?? '—'}</td>
                 <td>{asset.department?.name ?? '—'}</td>
                 <td>{asset.location || '—'}</td>
-                <td>{asset.status}</td>
+                <td><AssetStatusBadge status={asset.status} /></td>
                 <td>{asset.is_bookable ? 'Yes' : 'No'}</td>
+                {(onViewAsset || onEditAsset || onAllocateAsset) && (
+                  <td>
+                    {onViewAsset && (
+                      <button type="button" onClick={() => onViewAsset(asset)}>View</button>
+                    )}
+                    {onEditAsset && (
+                      <button type="button" onClick={() => onEditAsset(asset)}>Edit</button>
+                    )}
+                    {onAllocateAsset && asset.status === 'available' && !asset.is_bookable && (
+                      <button type="button" onClick={() => onAllocateAsset(asset)}>Allocate</button>
+                    )}
+                  </td>
+                )}
               </tr>
             ))}
           </tbody>
         </table>
+      )}
+
+      {!isLoading && resolvedTotalCount > pageSize && (
+        <nav aria-label="Asset directory pagination">
+          <button
+            type="button"
+            onClick={() => onPageChange?.(page - 1)}
+            disabled={page <= 1}
+          >
+            Previous
+          </button>
+          <span>Page {page} of {totalPages}</span>
+          <button
+            type="button"
+            onClick={() => onPageChange?.(page + 1)}
+            disabled={page >= totalPages}
+          >
+            Next
+          </button>
+        </nav>
       )}
     </section>
   );
