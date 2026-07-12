@@ -1,4 +1,4 @@
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 import { useUiStore } from "@/stores/uiStore";
 import { useAuthStore } from "@/stores/authStore";
 import { 
@@ -23,13 +23,15 @@ type NavItem = {
   href: string;
   icon: any;
   roles?: string[]; // If omitted, all roles can see it
+  end?: boolean;   // If true, only highlight on exact match
+  neverActive?: boolean; // If true, never show as active (sub-links)
 };
 
 const navigation: NavItem[] = [
-  { name: 'Dashboard', href: '/', icon: LayoutDashboard },
+  { name: 'Dashboard', href: '/', icon: LayoutDashboard, end: true },
   { name: 'Organization Setup', href: '/settings', icon: Settings },
-  { name: 'Assets', href: '/assets', icon: Package },
-  { name: 'Allocation & Transfer', href: '/allocations', icon: ArrowLeftRight },
+  { name: 'Assets', href: '/assets', icon: Package, end: true },
+  { name: 'Allocation & Transfer', href: '/assets', icon: ArrowLeftRight, neverActive: true },
   { name: 'Resource Booking', href: '/bookings', icon: CalendarDays },
   { name: 'Maintenance', href: '/maintenance', icon: Wrench },
   { name: 'Audit', href: '/audits', icon: ShieldCheck },
@@ -44,6 +46,7 @@ export function Sidebar() {
   const user = useAuthStore((state) => state.user);
   const profile = useAuthStore((state) => state.profile);
   const role = profile?.role;
+  const location = useLocation();
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -58,6 +61,13 @@ export function Sidebar() {
   const getInitials = (email?: string) => {
     if (!email) return 'U';
     return email.substring(0, 2).toUpperCase();
+  };
+
+  const isItemActive = (item: NavItem) => {
+    if (item.neverActive) return false;
+    const currentPath = location.pathname;
+    if (item.end) return currentPath === item.href;
+    return currentPath.startsWith(item.href);
   };
 
   return (
@@ -83,31 +93,30 @@ export function Sidebar() {
       </div>
 
       <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
-        {filteredNav.map((item) => (
-          <NavLink
-            key={item.name}
-            to={item.href}
-            onClick={() => setSidebarOpen(false)} // Close sidebar on mobile on nav click
-            className={({ isActive }) => cn(
-              "group flex items-center px-3 py-2.5 text-sm font-medium rounded-md transition-all duration-200",
-              isActive 
-                ? "bg-blue-50 text-blue-700" 
-                : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-            )}
-          >
-            {({ isActive }) => (
-              <>
-                <item.icon 
-                  className={cn(
-                    "mr-3 flex-shrink-0 h-5 w-5 transition-colors duration-200",
-                    isActive ? "text-blue-700" : "text-slate-400 group-hover:text-slate-600"
-                  )} 
-                />
-                {item.name}
-              </>
-            )}
-          </NavLink>
-        ))}
+        {filteredNav.map((item) => {
+          const active = isItemActive(item);
+          return (
+            <NavLink
+              key={item.name}
+              to={item.href}
+              onClick={() => setSidebarOpen(false)}
+              className={cn(
+                "group flex items-center px-3 py-2.5 text-sm font-medium rounded-md transition-all duration-200",
+                active
+                  ? "bg-blue-50 text-blue-700"
+                  : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+              )}
+            >
+              <item.icon
+                className={cn(
+                  "mr-3 flex-shrink-0 h-5 w-5 transition-colors duration-200",
+                  active ? "text-blue-700" : "text-slate-400 group-hover:text-slate-600"
+                )}
+              />
+              {item.name}
+            </NavLink>
+          );
+        })}
       </nav>
 
       <div className="p-4 border-t border-slate-100">
