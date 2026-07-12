@@ -93,6 +93,21 @@ Own the user-facing workflows: setup forms, asset registration, directory, alloc
 - Allocation conflict and booking overlap states are handled gracefully.
 - Maintenance and audit workflows can be demonstrated end to end.
 
+**Responsibilities**: Connecting M2's hooks to complex UIs, Form Validation, Data Tables.
+**Estimated Hours**: 36h (Coding) + 4h (Testing) + 8h (Rest/Pitch prep)
+
+| Deliverables | Parallel Tasks (Unblocks) | Dependencies | Definition of Done |
+|--------------|---------------------------|--------------|--------------------|
+| Admin Setup Forms (Depts, Categories) | - | M2 (Hooks), M3 (UI) | Form submits successfully, table updates |
+| Asset Registration Form | - | M2 (Hooks), M3 (UI) | Validates with Zod, uploads image, saves to Supabase |
+| Asset Directory (Table + Filters) | - | M2 (Hooks) | Data displays, pagination/search works |
+| Allocation & Transfer UI | - | M2 (Alloc Hook) | Handles RPC Conflict errors gracefully (shows Transfer button) |
+| Maintenance & Audit UI | - | M2 (Hooks) | Can progress a ticket through the workflow |
+
+**Daily Checklist**:
+- [ ] Am I using React Hook Form to prevent re-renders on large forms?
+- [ ] Are required fields clearly marked and validated before submitting to Supabase?
+
 ---
 
 ## 4. Conflict Resolution & Dependency Management
