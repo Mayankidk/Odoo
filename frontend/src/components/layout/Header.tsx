@@ -1,8 +1,20 @@
-import { Menu, Search, Bell } from "lucide-react";
+import { Bell, LogOut, Menu, Search } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+
+import { supabase } from "@/lib/supabase";
 import { useUiStore } from "@/stores/uiStore";
+import { useAuthStore } from "@/stores/authStore";
 
 export function Header() {
   const toggleSidebar = useUiStore((state) => state.toggleSidebar);
+  const clearSession = useAuthStore((state) => state.clearSession);
+  const navigate = useNavigate();
+
+  async function handleSignOut() {
+    await supabase.auth.signOut();
+    clearSession();
+    navigate("/login", { replace: true });
+  }
 
   return (
     <header className="h-16 bg-white border-b border-slate-200 shadow-sm flex items-center justify-between px-4 sm:px-6 lg:px-8 z-10">
@@ -32,6 +44,14 @@ export function Header() {
           <Bell className="h-5 w-5" />
           {/* Notification dot */}
           <span className="absolute top-1 right-1 block h-2 w-2 rounded-full bg-red-500 ring-2 ring-white" />
+        </button>
+        <button
+          onClick={handleSignOut}
+          className="text-slate-400 hover:text-slate-600 p-1"
+          aria-label="Sign out"
+          title="Sign out"
+        >
+          <LogOut className="h-5 w-5" />
         </button>
       </div>
     </header>

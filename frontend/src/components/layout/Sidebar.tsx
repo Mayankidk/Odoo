@@ -5,7 +5,7 @@ import {
   Package, 
   CalendarDays, 
   Wrench, 
-  Settings, 
+  Settings,
   Users,
   X
 } from "lucide-react";
@@ -17,7 +17,7 @@ const navigation = [
   { name: 'Bookings', href: '/bookings', icon: CalendarDays },
   { name: 'Maintenance', href: '/maintenance', icon: Wrench },
   { name: 'Users', href: '/users', icon: Users },
-  { name: 'Settings', href: '/settings', icon: Settings },
+  { name: 'Organization', href: '/settings', icon: Settings },
 ];
 
 export function Sidebar() {
