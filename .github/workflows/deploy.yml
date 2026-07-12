@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - mrunal
+      - mayank
   workflow_dispatch:
 
 permissions:
