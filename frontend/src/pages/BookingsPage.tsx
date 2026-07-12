@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, Plus, Calendar as CalendarIcon, Clock, MapPin, Trash2, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Calendar as CalendarIcon, Clock, MapPin, Trash2, X, Pencil } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useBookings, useAssets } from '@/hooks/queries';
 import { useBookResource, useCancelBooking } from '@/hooks/mutations';
@@ -10,6 +10,7 @@ export function BookingsPage() {
   const location = useLocation();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [reschedulingBooking, setReschedulingBooking] = useState<any | null>(null);
 
   useEffect(() => {
     if (location.state?.openModal) {
@@ -65,6 +66,34 @@ export function BookingsPage() {
       toast.success('Booking cancelled successfully');
     } catch (err: any) {
       toast.error(err.message || 'Failed to cancel booking');
+    }
+  };
+
+  const handleReschedule = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!reschedulingBooking) return;
+    const formData = new FormData(event.currentTarget);
+    const resourceId = String(formData.get('resource_id'));
+    const date = String(formData.get('date'));
+    const startTimeVal = String(formData.get('start_time'));
+    const endTimeVal = String(formData.get('end_time'));
+    const purpose = String(formData.get('purpose'));
+
+    if (!resourceId || !date || !startTimeVal || !endTimeVal) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+    const startIso = new Date(`${date}T${startTimeVal}`).toISOString();
+    const endIso = new Date(`${date}T${endTimeVal}`).toISOString();
+
+    try {
+      // Cancel old booking, then create new one
+      await cancelBooking.mutateAsync(reschedulingBooking.id);
+      await bookResource.mutateAsync({ resourceId, startTime: startIso, endTime: endIso, purpose: purpose || null });
+      toast.success('Booking rescheduled successfully!');
+      setReschedulingBooking(null);
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to reschedule booking');
     }
   };
 
@@ -208,14 +237,24 @@ export function BookingsPage() {
                   </span>
                   
                   {booking.status !== 'cancelled' && booking.status !== 'completed' && (
-                    <button 
-                      onClick={() => handleCancel(booking.id)}
-                      disabled={cancelBooking.isPending}
-                      className="text-slate-400 hover:text-red-600 transition-colors p-1.5 rounded-lg hover:bg-slate-100"
-                      title="Cancel Booking"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    <>
+                      <button 
+                        onClick={() => setReschedulingBooking(booking)}
+                        disabled={cancelBooking.isPending}
+                        className="text-slate-400 hover:text-blue-600 transition-colors p-1.5 rounded-lg hover:bg-slate-100"
+                        title="Reschedule Booking"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                      <button 
+                        onClick={() => handleCancel(booking.id)}
+                        disabled={cancelBooking.isPending}
+                        className="text-slate-400 hover:text-red-600 transition-colors p-1.5 rounded-lg hover:bg-slate-100"
+                        title="Cancel Booking"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </>
                   )}
                 </div>
               </div>
@@ -329,6 +368,69 @@ export function BookingsPage() {
                   className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-xl hover:bg-blue-500 shadow-sm disabled:opacity-60 transition-colors"
                 >
                   {bookResource.isPending ? 'Scheduling...' : 'Reserve Resource'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Reschedule Modal */}
+      {reschedulingBooking && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full border border-slate-200/80 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4 bg-slate-50/50">
+              <div>
+                <h3 className="text-lg font-semibold text-slate-900">Reschedule Booking</h3>
+                <p className="text-xs text-slate-500 mt-0.5">{reschedulingBooking.resource?.name} — pick a new time slot</p>
+              </div>
+              <button onClick={() => setReschedulingBooking(null)} className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <form onSubmit={handleReschedule} className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">Resource *</label>
+                <select name="resource_id" required defaultValue={reschedulingBooking.resource_id}
+                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500">
+                  <option value="">-- Select Resource --</option>
+                  {bookableAssets.map(asset => (
+                    <option key={asset.id} value={asset.id}>{asset.name} ({asset.asset_tag})</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">New Date *</label>
+                <input type="date" name="date" required
+                  defaultValue={reschedulingBooking.start_time ? new Date(reschedulingBooking.start_time).toISOString().split('T')[0] : ''}
+                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Start Time *</label>
+                  <input type="time" name="start_time" required
+                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">End Time *</label>
+                  <input type="time" name="end_time" required
+                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">Purpose / Notes</label>
+                <input type="text" name="purpose" defaultValue={reschedulingBooking.purpose ?? ''}
+                  placeholder="e.g. Weekly Sync, Field Testing"
+                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" />
+              </div>
+              <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
+                <button type="button" onClick={() => setReschedulingBooking(null)}
+                  className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors">
+                  Cancel
+                </button>
+                <button type="submit" disabled={bookResource.isPending || cancelBooking.isPending}
+                  className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-xl hover:bg-blue-500 shadow-sm disabled:opacity-60 transition-colors">
+                  {bookResource.isPending || cancelBooking.isPending ? 'Rescheduling...' : 'Confirm Reschedule'}
                 </button>
               </div>
             </form>

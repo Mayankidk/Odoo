@@ -5,7 +5,7 @@ import { useMaintenanceRequests, useAssets, useEmployees } from "@/hooks/queries
 import type { MaintenancePriority, MaintenanceStatus, MaintenanceRequest } from "@/lib/database.types"
 import { useAuthStore } from "@/stores/authStore"
 import { toast } from "sonner"
-import { AlertCircle, CheckCircle2, Clock, Wrench, X } from "lucide-react"
+import { AlertCircle, CheckCircle2, Clock, Wrench, X, Camera } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 const priorities: MaintenancePriority[] = ["low", "medium", "high", "critical"]
@@ -14,6 +14,7 @@ export function MaintenancePage() {
   const location = useLocation()
   const [selectedRequest, setSelectedRequest] = useState<any | null>(null)
   const [isRequestModalOpen, setIsRequestModalOpen] = useState(false)
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null)
 
   useEffect(() => {
     if (location.state?.openModal) {
@@ -82,12 +83,15 @@ export function MaintenancePage() {
       priority: String(form.get("priority")) as MaintenancePriority,
       status: "pending",
       raised_by_id: user.id,
+      // Include photo preview (base64) if captured; DB may store or ignore
+      ...(photoPreview ? { photo_url: photoPreview } : {}),
     }
 
     try {
       await createRequestMutation.mutateAsync(payload)
       toast.success("Maintenance request raised successfully!")
       setIsRequestModalOpen(false)
+      setPhotoPreview(null)
     } catch (err: any) {
       toast.error(err.message || "Failed to raise request")
     }
@@ -460,6 +464,41 @@ export function MaintenancePage() {
                   placeholder="Explain what is broken or malfunctioning..."
                   className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none h-28"
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1.5">
+                  <span className="flex items-center gap-1.5"><Camera className="w-4 h-4" /> Attach Photo (optional)</span>
+                </label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0]
+                    if (!file) { setPhotoPreview(null); return }
+                    if (file.size > 5 * 1024 * 1024) {
+                      toast.error("Photo must be under 5 MB")
+                      e.target.value = ""
+                      return
+                    }
+                    const reader = new FileReader()
+                    reader.onload = (ev) => setPhotoPreview(ev.target?.result as string)
+                    reader.readAsDataURL(file)
+                  }}
+                  className="w-full text-sm text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 transition-colors"
+                />
+                {photoPreview && (
+                  <div className="mt-2 relative inline-block">
+                    <img src={photoPreview} alt="Preview" className="h-24 w-auto rounded-lg border border-slate-200 object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => setPhotoPreview(null)}
+                      className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-rose-500 text-white flex items-center justify-center hover:bg-rose-600"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                )}
               </div>
 
               <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
