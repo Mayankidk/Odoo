@@ -1,8 +1,8 @@
 // ---------------------------------------------------------------------------
 // AssetFlow — Local Mock Database for Integration
 // ---------------------------------------------------------------------------
-// Used when VITE_USE_MOCK_DATA=true. Contains mutable local databases
-// and mutation functions to support realistic offline testing.
+// Used when VITE_USE_MOCK_DATA=true. Contains mutable local databases,
+// business logic validation guards, and helper functions to simulate database errors.
 // ---------------------------------------------------------------------------
 
 export const delay = (ms = 400) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -12,6 +12,7 @@ export let mockDepartments = [
   { id: 'dept-2', name: 'Product & Design', parent_department_id: null, department_head_id: 'emp-3', status: 'active' },
   { id: 'dept-3', name: 'Operations & IT', parent_department_id: null, department_head_id: 'emp-1', status: 'active' },
   { id: 'dept-4', name: 'Frontend Web', parent_department_id: 'dept-1', department_head_id: 'emp-4', status: 'active' },
+  { id: 'dept-5', name: 'Inactive Legacy Dept', parent_department_id: null, department_head_id: 'emp-5', status: 'inactive' },
 ];
 
 export let mockCategories = [
@@ -136,7 +137,6 @@ export function addMockAsset(asset) {
     ...asset,
   };
   mockAssets.push(newAsset);
-  // Recalculate KPIs
   mockDashboardKPIs.assets_available = mockAssets.filter((a) => a.status === 'available').length;
   return newAsset;
 }
@@ -144,7 +144,17 @@ export function addMockAsset(asset) {
 export function updateMockAsset(id, updates) {
   const index = mockAssets.findIndex((a) => a.id === id);
   if (index !== -1) {
-    mockAssets[index] = { ...mockAssets[index], ...updates };
+    const currentAsset = mockAssets[index];
+    
+    // Postgres check constraint validation mockup
+    if (updates.asset_tag && updates.asset_tag !== currentAsset.asset_tag) {
+      throw { message: 'ASSET_TAG_IMMUTABLE: Asset tags cannot be changed after creation', code: 'P0001' };
+    }
+    if (updates.acquisition_cost !== undefined && updates.acquisition_cost < 0) {
+      throw { message: 'new row violates check constraint "assets_acquisition_cost_positive"', code: '23514' };
+    }
+    
+    mockAssets[index] = { ...currentAsset, ...updates };
     mockDashboardKPIs.assets_available = mockAssets.filter((a) => a.status === 'available').length;
     mockDashboardKPIs.assets_allocated = mockAssets.filter((a) => a.status === 'allocated').length;
     return mockAssets[index];
@@ -164,6 +174,31 @@ export function deleteMockAsset(id) {
 }
 
 export function addMockAllocation(alloc) {
+  // Validate holder rules (mirroring custom Postgres validation)
+  if (!alloc.allocated_to_user_id && !alloc.allocated_to_dept_id) {
+    throw { message: 'INVALID_HOLDER: Provide exactly one user or department holder', code: 'P0001' };
+  }
+  if (alloc.allocated_to_user_id && alloc.allocated_to_dept_id) {
+    throw { message: 'INVALID_HOLDER: Provide exactly one user or department holder', code: 'P0001' };
+  }
+
+  // Validate active department rules
+  if (alloc.allocated_to_dept_id) {
+    const dept = mockDepartments.find((d) => d.id === alloc.allocated_to_dept_id);
+    if (dept && dept.status === 'inactive') {
+      throw { message: 'INACTIVE_DEPARTMENT: Deactivated departments cannot receive allocations', code: 'P0001' };
+    }
+  }
+
+  // Validate asset availability
+  const asset = mockAssets.find((a) => a.id === alloc.asset_id);
+  if (!asset) {
+    throw { message: 'ASSET_NOT_FOUND: Asset does not exist', code: 'P0001' };
+  }
+  if (asset.status !== 'available') {
+    throw { message: `ASSET_ALREADY_ALLOCATED: Currently held by another user`, code: 'P0001' };
+  }
+
   const newAlloc = {
     id: `alloc-${Date.now()}`,
     actual_return_date: null,
@@ -177,7 +212,6 @@ export function addMockAllocation(alloc) {
 
   // Update Asset status to allocated
   updateMockAsset(alloc.asset_id, { status: 'allocated' });
-  mockDashboardKPIs.assets_allocated += 1;
   return newAlloc;
 }
 
@@ -249,6 +283,24 @@ export function rejectMockTransfer(requestId, approverId, reason) {
 }
 
 export function addMockBooking(booking) {
+  // Validate start/end times
+  if (new Date(booking.start_time) >= new Date(booking.end_time)) {
+    throw { message: 'INVALID_BOOKING_TIME: End time must be after start time', code: 'P0001' };
+  }
+
+  // Validate schedule conflicts (overlap check)
+  const hasOverlap = mockBookings.some((b) => {
+    if (b.resource_id !== booking.resource_id || b.status === 'cancelled') return false;
+    return (
+      new Date(booking.start_time) < new Date(b.end_time) &&
+      new Date(booking.end_time) > new Date(b.start_time)
+    );
+  });
+
+  if (hasOverlap) {
+    throw { message: 'BOOKING_OVERLAP: Booking overlaps with an existing reservation', code: 'P0001' };
+  }
+
   const newBooking = {
     id: `book-${Date.now()}`,
     status: 'upcoming',
