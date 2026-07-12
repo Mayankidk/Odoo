@@ -1,5 +1,6 @@
 import { NavLink } from "react-router-dom";
 import { useUiStore } from "@/stores/uiStore";
+import { useAuthStore } from "@/stores/authStore";
 import { 
   LayoutDashboard, 
   Package, 
@@ -7,22 +8,49 @@ import {
   Wrench, 
   Settings,
   Users,
-  X
+  X,
+  LogOut
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/lib/supabase";
 
-const navigation = [
+type NavItem = {
+  name: string;
+  href: string;
+  icon: any;
+  roles?: string[]; // If omitted, all roles can see it
+};
+
+const navigation: NavItem[] = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
   { name: 'Assets', href: '/assets', icon: Package },
   { name: 'Bookings', href: '/bookings', icon: CalendarDays },
   { name: 'Maintenance', href: '/maintenance', icon: Wrench },
-  { name: 'Users', href: '/users', icon: Users },
-  { name: 'Organization', href: '/settings', icon: Settings },
+  { name: 'Users', href: '/users', icon: Users, roles: ['admin', 'asset_manager'] },
+  { name: 'Organization', href: '/settings', icon: Settings, roles: ['admin'] },
 ];
 
 export function Sidebar() {
   const isSidebarOpen = useUiStore((state) => state.isSidebarOpen);
   const setSidebarOpen = useUiStore((state) => state.setSidebarOpen);
+  const user = useAuthStore((state) => state.user);
+  const profile = useAuthStore((state) => state.profile);
+  const role = profile?.role;
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+  };
+
+  const filteredNav = navigation.filter(item => {
+    if (!item.roles) return true;
+    if (!role) return false;
+    return item.roles.includes(role);
+  });
+
+  const getInitials = (email?: string) => {
+    if (!email) return 'U';
+    return email.substring(0, 2).toUpperCase();
+  };
 
   return (
     <aside
@@ -47,7 +75,7 @@ export function Sidebar() {
       </div>
 
       <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
-        {navigation.map((item) => (
+        {filteredNav.map((item) => (
           <NavLink
             key={item.name}
             to={item.href}
@@ -76,14 +104,22 @@ export function Sidebar() {
 
       <div className="p-4 border-t border-slate-100">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center overflow-hidden">
-            {/* Placeholder avatar */}
-            <span className="text-sm font-medium text-slate-600">JD</span>
+          <div className="w-10 h-10 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center overflow-hidden flex-shrink-0">
+            <span className="text-sm font-medium text-slate-600">{getInitials(user?.email)}</span>
           </div>
           <div className="flex flex-col flex-1 overflow-hidden">
-            <span className="text-sm font-medium text-slate-900 truncate">John Doe</span>
-            <span className="text-xs text-slate-500 truncate">Admin</span>
+            <span className="text-sm font-medium text-slate-900 truncate">
+              {user?.email || 'Unknown User'}
+            </span>
+            <span className="text-xs text-slate-500 capitalize">{role || 'User'}</span>
           </div>
+          <button 
+            onClick={handleLogout}
+            className="text-slate-400 hover:text-slate-600 transition-colors flex-shrink-0 ml-1"
+            title="Log out"
+          >
+            <LogOut className="w-5 h-5" />
+          </button>
         </div>
       </div>
     </aside>

@@ -7,6 +7,7 @@ import { DashboardPage } from "./pages/DashboardPage";
 import { LoginPage } from "./pages/LoginPage";
 import { OrganizationSetupPage } from "./pages/OrganizationSetupPage";
 import { SignupPage } from "./pages/SignupPage";
+import { BookingsPage } from "./pages/BookingsPage";
 
 function App() {
   return (
@@ -19,7 +20,7 @@ function App() {
             <Route path="/" element={<AppLayout />}>
               <Route index element={<DashboardPage />} />
               <Route path="assets" element={<AssetsPage />} />
-              <Route path="bookings" element={<div className="p-4">Bookings Page Placeholder</div>} />
+              <Route path="bookings" element={<BookingsPage />} />
               <Route path="maintenance" element={<div className="p-4">Maintenance Page Placeholder</div>} />
               <Route path="users" element={<div className="p-4">Users Page Placeholder</div>} />
               <Route path="settings" element={<OrganizationSetupPage />} />
