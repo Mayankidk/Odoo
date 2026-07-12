@@ -1,10 +1,11 @@
 import { useState, useEffect, type FormEvent } from "react"
-import { useRegisterAsset, useAllocateAsset, useReturnAsset, useCreateTransferRequest } from "@/hooks/mutations"
-import { useAssets, useCategories, useDepartments, useEmployees } from "@/hooks/queries"
-import type { Asset, AssetCondition, AssetStatus } from "@/lib/database.types"
+import { useRegisterAsset, useAllocateAsset, useReturnAsset, useCreateTransferRequest, useUploadAssetDocument, useDeleteAssetDocument } from "@/hooks/mutations"
+import { useAssets, useCategories, useDepartments, useEmployees, useAssetDocuments } from "@/hooks/queries"
+import type { Asset, AssetCondition, AssetStatus, AssetDocument } from "@/lib/database.types"
 import { useAuthStore } from "@/stores/authStore"
 import { toast } from "sonner"
-import { Package, X, AlertTriangle } from "lucide-react"
+import { Package, X, AlertTriangle, FileText } from "lucide-react"
+import { AssetDocumentUpload } from "@/components/AssetDocumentUpload"
 
 const assetConditions: AssetCondition[] = ["new", "good", "fair", "poor", "damaged"]
 const assetStatuses: AssetStatus[] = ["available", "allocated", "reserved", "under_maintenance", "lost", "retired", "disposed"]
@@ -27,6 +28,7 @@ export function AssetsPage() {
   const [registerCategoryId, setRegisterCategoryId] = useState("")
   const [transferAllocation, setTransferAllocation] = useState<any | null>(null)
   const [allocationConflictHolder, setAllocationConflictHolder] = useState<string | null>(null)
+  const [documentAsset, setDocumentAsset] = useState<Asset | null>(null)
 
   useEffect(() => {
     if (allocateAsset && allocateAsset.status === "allocated") {
@@ -80,6 +82,31 @@ export function AssetsPage() {
   const allocateAssetMutation = useAllocateAsset()
   const returnAssetMutation = useReturnAsset()
   const createTransferMutation = useCreateTransferRequest()
+  const uploadDocumentMutation = useUploadAssetDocument()
+  const deleteDocumentMutation = useDeleteAssetDocument()
+
+  // Document queries (only runs when modal is open)
+  const assetDocumentsQuery = useAssetDocuments(documentAsset?.id ?? null)
+
+  async function handleDocumentUpload(file: File, assetId: string) {
+    try {
+      await uploadDocumentMutation.mutateAsync({ file, assetId })
+      toast.success(`"${file.name}" uploaded successfully.`)
+    } catch (error) {
+      toast.error(getErrorMessage(error))
+      throw error
+    }
+  }
+
+  async function handleDocumentRemove(document: AssetDocument) {
+    if (!documentAsset) return
+    try {
+      await deleteDocumentMutation.mutateAsync({ documentId: document.id, assetId: documentAsset.id })
+      toast.success(`"${document.file_name}" removed.`)
+    } catch (error) {
+      toast.error(getErrorMessage(error))
+    }
+  }
 
   // Let's create a helper to handle allocation return.
   const handleReturnClick = async (asset: Asset) => {
@@ -373,37 +400,46 @@ export function AssetsPage() {
                         </td>
                         <td className="px-6 py-4 text-slate-600">{asset.location ?? "-"}</td>
                         <td className="px-6 py-4 text-slate-600">{asset.is_bookable ? "Yes" : "No"}</td>
-                        <td className="px-6 py-4 text-right space-x-2">
-                          {asset.status === "available" && (
-                            <button 
-                              onClick={() => setAllocateAsset(asset)}
-                              className="text-xs font-semibold text-blue-600 hover:text-blue-500 bg-blue-50 hover:bg-blue-100/50 px-2.5 py-1.5 rounded-lg transition-colors"
+                        <td className="px-6 py-4 text-right">
+                          <div className="flex gap-2 justify-end flex-wrap">
+                            <button
+                              onClick={() => setDocumentAsset(asset)}
+                              className="text-xs font-semibold text-slate-600 hover:text-slate-800 bg-slate-100 hover:bg-slate-200 px-2.5 py-1.5 rounded-lg transition-colors flex items-center gap-1"
                             >
-                              Allocate
+                              <FileText className="w-3 h-3" />
+                              Docs
                             </button>
-                          )}
-                          {asset.status === "allocated" && (
-                            <div className="flex gap-2 justify-end">
+                            {asset.status === "available" && (
                               <button 
                                 onClick={() => setAllocateAsset(asset)}
                                 className="text-xs font-semibold text-blue-600 hover:text-blue-500 bg-blue-50 hover:bg-blue-100/50 px-2.5 py-1.5 rounded-lg transition-colors"
                               >
                                 Allocate
                               </button>
-                              <button 
-                                onClick={() => handleReturnClick(asset)}
-                                className="text-xs font-semibold text-emerald-600 hover:text-emerald-500 bg-emerald-50 hover:bg-emerald-100/50 px-2.5 py-1.5 rounded-lg transition-colors"
-                              >
-                                Return
-                              </button>
-                              <button 
-                                onClick={() => handleTransferClick(asset)}
-                                className="text-xs font-semibold text-purple-600 hover:text-purple-500 bg-purple-50 hover:bg-purple-100/50 px-2.5 py-1.5 rounded-lg transition-colors"
-                              >
-                                Transfer
-                              </button>
-                            </div>
-                          )}
+                            )}
+                            {asset.status === "allocated" && (
+                              <>
+                                <button 
+                                  onClick={() => setAllocateAsset(asset)}
+                                  className="text-xs font-semibold text-blue-600 hover:text-blue-500 bg-blue-50 hover:bg-blue-100/50 px-2.5 py-1.5 rounded-lg transition-colors"
+                                >
+                                  Allocate
+                                </button>
+                                <button 
+                                  onClick={() => handleReturnClick(asset)}
+                                  className="text-xs font-semibold text-emerald-600 hover:text-emerald-500 bg-emerald-50 hover:bg-emerald-100/50 px-2.5 py-1.5 rounded-lg transition-colors"
+                                >
+                                  Return
+                                </button>
+                                <button 
+                                  onClick={() => handleTransferClick(asset)}
+                                  className="text-xs font-semibold text-purple-600 hover:text-purple-500 bg-purple-50 hover:bg-purple-100/50 px-2.5 py-1.5 rounded-lg transition-colors"
+                                >
+                                  Transfer
+                                </button>
+                              </>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     ))
@@ -836,6 +872,40 @@ export function AssetsPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Documents Modal */}
+      {documentAsset && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl max-w-lg w-full border border-slate-200/80 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4 bg-slate-50/50">
+              <div>
+                <h3 className="text-lg font-semibold text-slate-900">Documents</h3>
+                <p className="text-xs text-slate-500 mt-0.5">{documentAsset.name} &mdash; {documentAsset.asset_tag}</p>
+              </div>
+              <button
+                onClick={() => setDocumentAsset(null)}
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6 max-h-[70vh] overflow-y-auto">
+              {assetDocumentsQuery.isLoading ? (
+                <p className="text-xs text-slate-500 text-center py-4">Loading documents...</p>
+              ) : (
+                <AssetDocumentUpload
+                  assetId={documentAsset.id}
+                  documents={assetDocumentsQuery.data ?? []}
+                  isUploading={uploadDocumentMutation.isPending}
+                  isDeleting={deleteDocumentMutation.isPending}
+                  onUpload={handleDocumentUpload}
+                  onRemove={handleDocumentRemove}
+                />
+              )}
+            </div>
           </div>
         </div>
       )}

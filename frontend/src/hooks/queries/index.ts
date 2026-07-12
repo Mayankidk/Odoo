@@ -1,5 +1,6 @@
 export { useAllocations } from "./useAllocations"
 export { useAssets } from "./useAssets"
+export { useAssetDocuments } from "./useAssetDocuments"
 export { useAuditCycles, useAuditItems } from "./useAudits"
 export { useBookings } from "./useBookings"
 export { useCategories } from "./useCategories"
