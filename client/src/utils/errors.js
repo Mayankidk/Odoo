@@ -58,8 +58,17 @@ export function parseSupabaseError(error) {
   // 2. Map Postgres standard error codes
   switch (code) {
     // 42501 - Insufficient Privilege (Row Level Security policy violation)
-    case '42501':
-      return 'Access Denied: You do not have permission to view, edit, or delete this record.';
+    case '42501': {
+      if (message.includes('table')) {
+        const tableMatch = message.match(/table "?(\w+)"?/i);
+        const tableName = tableMatch ? tableMatch[1] : '';
+        if (tableName) {
+          return `Access Denied: You do not have permissions to modify the "${tableName}" directory.`;
+        }
+      }
+      return 'Access Denied: You do not have permission to perform this operation under current security policies.';
+    }
+
 
     // 23505 - Unique Violation (e.g. duplicate email, unique names, duplicate asset tags)
     case '23505': {

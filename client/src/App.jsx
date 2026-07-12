@@ -40,7 +40,8 @@ function App() {
     pageSize: 5,
   });
   const { data: employees } = useEmployees({ status: 'active' });
-  const { data: departments } = useDepartments({ status: 'active' });
+  const { data: departments } = useDepartments();
+
 
   // ⚡ Data Mutation
   const allocate = useAllocateAsset();
@@ -273,9 +274,10 @@ function App() {
                   <option value="">-- Choose Department --</option>
                   {departments?.map((dept) => (
                     <option key={dept.id} value={dept.id}>
-                      {dept.name}
+                      {dept.name} {dept.status === 'inactive' ? ' (Inactive)' : ''}
                     </option>
                   ))}
+
                 </select>
               </div>
 
