@@ -14,7 +14,7 @@ export function useAuditCycles() {
         .order("start_date", { ascending: false })
 
       throwIfError(error)
-      return data
+      return data as any[]
     },
   })
 }
@@ -26,12 +26,12 @@ export function useAuditItems(auditCycleId?: string) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("audit_items")
-        .select("*, asset:assets(asset_tag, name), verified_by:users(name)")
+        .select("*, asset:assets!asset_id(asset_tag, name), verified_by:users!verified_by_id(name)")
         .eq("audit_cycle_id", auditCycleId ?? "")
         .order("created_at", { ascending: true })
 
       throwIfError(error)
-      return data
+      return data as any[]
     },
   })
 }

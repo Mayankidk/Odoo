@@ -50,3 +50,46 @@ export function useUpdateAuditItem() {
     },
   })
 }
+
+export function useCloseAuditCycle() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (auditCycleId: string) => {
+      const { data: cycle, error: cycleError } = await supabase
+        .from("audit_cycles")
+        .update({ status: "closed" as any })
+        .eq("id", auditCycleId)
+        .select()
+        .single()
+
+      throwIfError(cycleError)
+
+      const { data: items, error: itemsError } = await supabase
+        .from("audit_items")
+        .select("asset_id, verification_status")
+        .eq("audit_cycle_id", auditCycleId)
+
+      throwIfError(itemsError)
+
+      const missingItems = items?.filter(item => item.verification_status === "missing") ?? []
+
+      if (missingItems.length > 0) {
+        const assetIds = missingItems.map(item => item.asset_id)
+        const { error: assetsError } = await supabase
+          .from("assets")
+          .update({ status: "lost" })
+          .in("id", assetIds)
+
+        throwIfError(assetsError)
+      }
+
+      return cycle
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["assets"] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.auditCycles })
+      queryClient.invalidateQueries({ queryKey: ["auditItems"] })
+    },
+  })
+}
