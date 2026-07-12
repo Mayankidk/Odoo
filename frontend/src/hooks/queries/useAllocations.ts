@@ -10,7 +10,7 @@ export function useAllocations() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("allocations")
-        .select("*, asset:assets(asset_tag, name), user:users(name), department:departments(name)")
+        .select("*, asset:assets(asset_tag, name), user:users!allocations_allocated_to_user_id_fkey(name), department:departments!allocations_allocated_to_dept_id_fkey(name)")
         .order("created_at", { ascending: false })
 
       throwIfError(error)

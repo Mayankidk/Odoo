@@ -10,7 +10,7 @@ export function useEmployees() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("users")
-        .select("*, department:departments(name)")
+        .select("*, department:departments!users_department_id_fkey(name)")
         .order("name", { ascending: true })
 
       throwIfError(error)

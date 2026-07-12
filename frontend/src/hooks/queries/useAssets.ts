@@ -16,7 +16,7 @@ export function useAssets(filters: AssetFilters = {}) {
 
       let query = supabase
         .from("assets")
-        .select("*, category:asset_categories(name), department:departments(name)", {
+        .select("*, category:asset_categories(name), department:departments!assets_department_id_fkey(name)", {
           count: "exact",
         })
         .range(from, to)
