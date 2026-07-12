@@ -3,6 +3,7 @@ import { AppLayout } from "./components/layout/AppLayout";
 import { DashboardPage } from "./pages/DashboardPage";
 import { LoginPage } from "./pages/LoginPage";
 import { SignupPage } from "./pages/SignupPage";
+import { BookingsPage } from "./pages/BookingsPage";
 import { ProtectedRoute } from "./components/layout/ProtectedRoute";
 import { AuthProvider } from "./contexts/AuthProvider";
 
@@ -18,7 +19,7 @@ function App() {
             <Route path="/" element={<AppLayout />}>
               <Route index element={<DashboardPage />} />
               <Route path="assets" element={<div className="p-4">Assets Page Placeholder</div>} />
-              <Route path="bookings" element={<div className="p-4">Bookings Page Placeholder</div>} />
+              <Route path="bookings" element={<BookingsPage />} />
               <Route path="maintenance" element={<div className="p-4">Maintenance Page Placeholder</div>} />
               <Route path="users" element={<div className="p-4">Users Page Placeholder</div>} />
               <Route path="settings" element={<div className="p-4">Settings Page Placeholder</div>} />
