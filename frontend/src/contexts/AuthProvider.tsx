@@ -31,17 +31,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let isMounted = true
 
     async function hydrateSession() {
-      const { data } = await supabase.auth.getSession()
-      const user = data.session?.user
+      try {
+        const { data } = await supabase.auth.getSession()
+        const user = data.session?.user
 
-      if (!isMounted) return
-      if (!user) {
-        clearSession()
-        return
+        if (!isMounted) return
+        if (!user) {
+          clearSession()
+          return
+        }
+
+        const profile = await loadProfile(user)
+        if (isMounted) setSession(user, profile)
+      } catch (error) {
+        console.error("Supabase auth session error:", error)
+        if (isMounted) clearSession()
       }
-
-      const profile = await loadProfile(user)
-      if (isMounted) setSession(user, profile)
     }
 
     hydrateSession()
@@ -55,9 +60,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return
       }
 
-      loadProfile(user).then((profile) => {
-        if (isMounted) setSession(user, profile)
-      })
+      loadProfile(user)
+        .then((profile) => {
+          if (isMounted) setSession(user, profile)
+        })
+        .catch((error) => {
+          console.error("Supabase auth profile error:", error)
+          if (isMounted) clearSession()
+        })
     })
 
     return () => {
