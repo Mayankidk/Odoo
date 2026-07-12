@@ -11,11 +11,16 @@ import { BookingsPage } from "./pages/BookingsPage";
 import { MaintenancePage } from "./pages/MaintenancePage";
 import { AuditPage } from "./pages/AuditPage";
 import { UsersPage } from "./pages/UsersPage";
+import { AnalyticsPage } from "./pages/AnalyticsPage";
+import { AuditLogsPage } from "./pages/AuditLogsPage";
+import { Toaster } from "@/components/ui/sonner";
+
 
 
 function App() {
   return (
     <AuthProvider>
+      <Toaster position="top-right" richColors />
       <HashRouter>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
@@ -28,6 +33,8 @@ function App() {
               <Route path="maintenance" element={<MaintenancePage />} />
               <Route path="audits" element={<AuditPage />} />
               <Route path="users" element={<UsersPage />} />
+              <Route path="analytics" element={<AnalyticsPage />} />
+              <Route path="audit-logs" element={<AuditLogsPage />} />
               <Route path="settings" element={<OrganizationSetupPage />} />
             </Route>
           </Route>

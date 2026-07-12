@@ -10,7 +10,9 @@ import {
   Users,
   X,
   LogOut,
-  ShieldCheck
+  ShieldCheck,
+  TrendingUp,
+  History
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
@@ -29,6 +31,8 @@ const navigation: NavItem[] = [
   { name: 'Maintenance', href: '/maintenance', icon: Wrench },
   { name: 'Audits', href: '/audits', icon: ShieldCheck, roles: ['admin', 'asset_manager', 'auditor'] },
   { name: 'Users', href: '/users', icon: Users, roles: ['admin', 'asset_manager'] },
+  { name: 'Analytics', href: '/analytics', icon: TrendingUp, roles: ['admin', 'asset_manager'] },
+  { name: 'Audit Logs', href: '/audit-logs', icon: History, roles: ['admin', 'asset_manager'] },
   { name: 'Organization', href: '/settings', icon: Settings, roles: ['admin'] },
 ];
 

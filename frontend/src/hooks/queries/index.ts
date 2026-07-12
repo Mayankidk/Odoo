@@ -8,4 +8,6 @@ export { useDepartments } from "./useDepartments"
 export { useEmployees } from "./useEmployees"
 export { useMaintenanceRequests } from "./useMaintenanceRequests"
 export { useTransferRequests } from "./useTransferRequests"
+export { useNotifications, useMarkNotificationRead, useMarkAllNotificationsRead } from "./useNotifications"
+export { useAuditLogs } from "./useAuditLogs"
 

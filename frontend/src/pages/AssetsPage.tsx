@@ -1,10 +1,10 @@
-import { useState, type FormEvent } from "react"
+import { useState, useEffect, type FormEvent } from "react"
 import { useRegisterAsset, useAllocateAsset, useReturnAsset, useCreateTransferRequest } from "@/hooks/mutations"
 import { useAssets, useCategories, useDepartments, useEmployees } from "@/hooks/queries"
 import type { Asset, AssetCondition, AssetStatus } from "@/lib/database.types"
 import { useAuthStore } from "@/stores/authStore"
 import { toast } from "sonner"
-import { Package, X } from "lucide-react"
+import { Package, X, AlertTriangle } from "lucide-react"
 
 const assetConditions: AssetCondition[] = ["new", "good", "fair", "poor", "damaged"]
 const assetStatuses: AssetStatus[] = ["available", "allocated", "reserved", "under_maintenance", "lost", "retired", "disposed"]
@@ -26,6 +26,38 @@ export function AssetsPage() {
   const [returnAsset, setReturnAsset] = useState<{ asset: Asset; allocationId: string } | null>(null)
   const [registerCategoryId, setRegisterCategoryId] = useState("")
   const [transferAllocation, setTransferAllocation] = useState<any | null>(null)
+  const [allocationConflictHolder, setAllocationConflictHolder] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (allocateAsset && allocateAsset.status === "allocated") {
+        const fetchHolder = async () => {
+          const { supabase } = await import("@/lib/supabase")
+          const { data } = await supabase
+            .from("allocations")
+            .select(`
+              allocated_to_user_id,
+              allocated_to_dept_id
+            `)
+            .eq("asset_id", allocateAsset.id)
+            .eq("status", "active")
+            .single()
+            
+          let holderName = "Unknown holder"
+          if (data?.allocated_to_user_id) {
+            const { data: user } = await supabase.from("users").select("name").eq("id", data.allocated_to_user_id).single()
+            if (user) holderName = user.name
+          } else if (data?.allocated_to_dept_id) {
+            const { data: dept } = await supabase.from("departments").select("name").eq("id", data.allocated_to_dept_id).single()
+            if (dept) holderName = dept.name
+          }
+          
+          setAllocationConflictHolder(holderName)
+        }
+        fetchHolder()
+    } else {
+      setAllocationConflictHolder(null)
+    }
+  }, [allocateAsset])
 
   const user = useAuthStore((state) => state.user)
   
@@ -77,9 +109,7 @@ export function AssetsPage() {
         id,
         asset_id,
         allocated_to_user_id,
-        allocated_to_dept_id,
-        user:users!allocations_allocated_to_user_id_fkey(name),
-        department:departments!allocations_allocated_to_dept_id_fkey(name)
+        allocated_to_dept_id
       `)
       .eq("asset_id", asset.id)
       .eq("status", "active")
@@ -90,8 +120,22 @@ export function AssetsPage() {
       return
     }
 
+    let userName = null;
+    let deptName = null;
+
+    if (data.allocated_to_user_id) {
+      const { data: user } = await supabase.from("users").select("name").eq("id", data.allocated_to_user_id).single()
+      if (user) userName = user.name
+    }
+    if (data.allocated_to_dept_id) {
+      const { data: dept } = await supabase.from("departments").select("name").eq("id", data.allocated_to_dept_id).single()
+      if (dept) deptName = dept.name
+    }
+
     setTransferAllocation({
       ...data,
+      user: { name: userName },
+      department: { name: deptName },
       asset,
     })
   }
@@ -341,6 +385,12 @@ export function AssetsPage() {
                           {asset.status === "allocated" && (
                             <div className="flex gap-2 justify-end">
                               <button 
+                                onClick={() => setAllocateAsset(asset)}
+                                className="text-xs font-semibold text-blue-600 hover:text-blue-500 bg-blue-50 hover:bg-blue-100/50 px-2.5 py-1.5 rounded-lg transition-colors"
+                              >
+                                Allocate
+                              </button>
+                              <button 
                                 onClick={() => handleReturnClick(asset)}
                                 className="text-xs font-semibold text-emerald-600 hover:text-emerald-500 bg-emerald-50 hover:bg-emerald-100/50 px-2.5 py-1.5 rounded-lg transition-colors"
                               >
@@ -565,70 +615,109 @@ export function AssetsPage() {
               </button>
             </div>
             
-            <form onSubmit={handleAllocateSubmit} className="p-6 space-y-4">
-              <div className="flex gap-4 p-1.5 bg-slate-100 rounded-xl w-fit">
-                <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 cursor-pointer px-3 py-1.5 rounded-lg bg-white shadow-sm">
-                  <input type="radio" name="type" value="user" defaultChecked />
-                  Employee
-                </label>
-                <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 cursor-pointer px-3 py-1.5 rounded-lg">
-                  <input type="radio" name="type" value="department" />
-                  Department
-                </label>
+            {allocateAsset.status === "allocated" ? (
+              <div className="p-6 space-y-4 text-center">
+                <div className="inline-flex p-3 bg-amber-50 text-amber-600 rounded-2xl mb-2 animate-bounce">
+                  <AlertTriangle className="w-8 h-8" />
+                </div>
+                <h4 className="text-base font-bold text-slate-900">Allocation Conflict Detected</h4>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  This asset is already allocated and currently held by{" "}
+                  <strong className="font-semibold text-slate-950 block mt-1 text-sm">
+                    {allocationConflictHolder || "Loading..."}
+                  </strong>
+                </p>
+                <p className="text-[11px] text-slate-400">
+                  You cannot double-allocate a resource. Please request a transfer if you need this asset.
+                </p>
+                
+                <div className="flex flex-col gap-2 pt-4 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const asset = allocateAsset
+                      setAllocateAsset(null)
+                      handleTransferClick(asset)
+                    }}
+                    className="w-full px-4 py-2.5 text-sm font-semibold text-white bg-purple-600 hover:bg-purple-500 rounded-xl shadow-sm transition-colors cursor-pointer"
+                  >
+                    Request Transfer Instead
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAllocateAsset(null)}
+                    className="w-full px-4 py-2.5 text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                </div>
               </div>
+            ) : (
+              <form onSubmit={handleAllocateSubmit} className="p-6 space-y-4">
+                <div className="flex gap-4 p-1.5 bg-slate-100 rounded-xl w-fit">
+                  <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 cursor-pointer px-3 py-1.5 rounded-lg bg-white shadow-sm">
+                    <input type="radio" name="type" value="user" defaultChecked />
+                    Employee
+                  </label>
+                  <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-700 cursor-pointer px-3 py-1.5 rounded-lg">
+                    <input type="radio" name="type" value="department" />
+                    Department
+                  </label>
+                </div>
 
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">Select Employee</label>
-                <select 
-                  name="user_id" 
-                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-                >
-                  <option value="">-- Select Employee --</option>
-                  {employees.data?.map(emp => (
-                    <option key={emp.id} value={emp.id}>{emp.name} ({emp.email})</option>
-                  ))}
-                </select>
-              </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Select Employee</label>
+                  <select 
+                    name="user_id" 
+                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                  >
+                    <option value="">-- Select Employee --</option>
+                    {employees.data?.map(emp => (
+                      <option key={emp.id} value={emp.id}>{emp.name} ({emp.email})</option>
+                    ))}
+                  </select>
+                </div>
 
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">Select Department</label>
-                <select 
-                  name="department_id" 
-                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-                >
-                  <option value="">-- Select Department --</option>
-                  {departments.data?.filter(d => d.status === "active").map(dept => (
-                    <option key={dept.id} value={dept.id}>{dept.name}</option>
-                  ))}
-                </select>
-              </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Select Department</label>
+                  <select 
+                    name="department_id" 
+                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                  >
+                    <option value="">-- Select Department --</option>
+                    {departments.data?.filter(d => d.status === "active").map(dept => (
+                      <option key={dept.id} value={dept.id}>{dept.name}</option>
+                    ))}
+                  </select>
+                </div>
 
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1.5">Expected Return Date</label>
-                <input 
-                  type="date" 
-                  name="expected_return_date"
-                  className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
-                />
-              </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1.5">Expected Return Date</label>
+                  <input 
+                    type="date" 
+                    name="expected_return_date"
+                    className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"
+                  />
+                </div>
 
-              <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
-                <button 
-                  type="button" 
-                  onClick={() => setAllocateAsset(null)}
-                  className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button 
-                  type="submit" 
-                  disabled={allocateAssetMutation.isPending}
-                  className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-xl hover:bg-blue-500 shadow-sm disabled:opacity-60 transition-colors"
-                >
-                  {allocateAssetMutation.isPending ? "Allocating..." : "Confirm Allocation"}
-                </button>
-              </div>
-            </form>
+                <div className="flex justify-end gap-3 pt-4 border-t border-slate-100">
+                  <button 
+                    type="button" 
+                    onClick={() => setAllocateAsset(null)}
+                    className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    type="submit" 
+                    disabled={allocateAssetMutation.isPending}
+                    className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-xl hover:bg-blue-500 shadow-sm disabled:opacity-60 transition-colors cursor-pointer"
+                  >
+                    {allocateAssetMutation.isPending ? "Allocating..." : "Confirm Allocation"}
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       )}

@@ -9,4 +9,6 @@ export const queryKeys = {
   maintenanceRequests: ["maintenance-requests"] as const,
   auditCycles: ["audit-cycles"] as const,
   auditItems: (auditCycleId?: string) => ["audit-items", auditCycleId ?? "all"] as const,
+  notifications: ["notifications"] as const,
+  auditLogs: (filters?: unknown) => ["audit-logs", filters ?? {}] as const,
 }
