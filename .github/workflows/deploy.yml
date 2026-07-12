@@ -41,9 +41,9 @@ jobs:
       - name: Build project
         run: npm run build
         env:
-          # Add any necessary env variables here if needed during build
-          # VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          # VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_SUPABASE_URL: "https://rbeeypdjcddgdhrsmhnv.supabase.co"
+          VITE_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_DF3okNns0OVL6bxGF04ORA_y5GINqav"
+          VITE_SUPABASE_ANON_KEY: "sb_publishable_DF3okNns0OVL6bxGF04ORA_y5GINqav"
           CI: true
 
       - name: Setup Pages
